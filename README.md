@@ -1,11 +1,11 @@
-# OtterScale Operator Template
+# OtterScale Addons Operator
 
-[![Tests](https://github.com/otterscale/operator-template/actions/workflows/test.yml/badge.svg)](https://github.com/otterscale/operator-template/actions/workflows/test.yml)
-[![Lint](https://github.com/otterscale/operator-template/actions/workflows/lint.yml/badge.svg)](https://github.com/otterscale/operator-template/actions/workflows/lint.yml)
-[![codecov](https://codecov.io/gh/otterscale/operator-template/branch/main/graph/badge.svg)](https://codecov.io/gh/otterscale/operator-template)
-[![Go Report Card](https://goreportcard.com/badge/github.com/otterscale/operator-template)](https://goreportcard.com/report/github.com/otterscale/operator-template)
-[![Release](https://img.shields.io/github/v/release/otterscale/operator-template)](https://github.com/otterscale/operator-template/releases/latest)
-[![License](https://img.shields.io/github/license/otterscale/operator-template)](LICENSE)
+[![Tests](https://github.com/otterscale/addons-operator/actions/workflows/test.yml/badge.svg)](https://github.com/otterscale/addons-operator/actions/workflows/test.yml)
+[![Lint](https://github.com/otterscale/addons-operator/actions/workflows/lint.yml/badge.svg)](https://github.com/otterscale/addons-operator/actions/workflows/lint.yml)
+[![codecov](https://codecov.io/gh/otterscale/addons-operator/branch/main/graph/badge.svg)](https://codecov.io/gh/otterscale/addons-operator)
+[![Go Report Card](https://goreportcard.com/badge/github.com/otterscale/addons-operator)](https://goreportcard.com/report/github.com/otterscale/addons-operator)
+[![Release](https://img.shields.io/github/v/release/otterscale/addons-operator)](https://github.com/otterscale/addons-operator/releases/latest)
+[![License](https://img.shields.io/github/license/otterscale/addons-operator)](LICENSE)
 
 A GitHub repository template for building Kubernetes operators that reconcile [OtterScale](https://github.com/otterscale/api) custom resources. Scaffolded with [Kubebuilder](https://book.kubebuilder.io) v4.
 
@@ -66,7 +66,7 @@ Each file is a `ClusterRole` with the appropriate `rbac.authorization.k8s.io/agg
 **`config/rbac/module_admin_role.yaml`**
 
 ```yaml
-# This rule is not used by the project operator-template itself.
+# This rule is not used by the project addons-operator itself.
 # It is provided to allow the cluster admin to help manage permissions for users.
 #
 # Grants read-only access to addons.otterscale.io resources.
@@ -77,7 +77,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   labels:
-    app.kubernetes.io/name: operator-template
+    app.kubernetes.io/name: addons-operator
     app.kubernetes.io/managed-by: kustomize
     rbac.authorization.k8s.io/aggregate-to-admin: "true"
   name: workspace-admin-role
@@ -99,7 +99,7 @@ rules:
 **`config/rbac/module_editor_role.yaml`**
 
 ```yaml
-# This rule is not used by the project operator-template itself.
+# This rule is not used by the project addons-operator itself.
 # It is provided to allow the cluster admin to help manage permissions for users.
 #
 # Grants read-only access to addons.otterscale.io resources.
@@ -110,7 +110,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   labels:
-    app.kubernetes.io/name: operator-template
+    app.kubernetes.io/name: addons-operator
     app.kubernetes.io/managed-by: kustomize
     rbac.authorization.k8s.io/aggregate-to-edit: "true"
   name: workspace-editor-role
@@ -138,7 +138,7 @@ rules:
 **`config/rbac/module_viewer_role.yaml`**
 
 ```yaml
-# This rule is not used by the project operator-template itself.
+# This rule is not used by the project addons-operator itself.
 # It is provided to allow the cluster admin to help manage permissions for users.
 #
 # Grants read-only access to addons.otterscale.io resources.
@@ -149,7 +149,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   labels:
-    app.kubernetes.io/name: operator-template
+    app.kubernetes.io/name: addons-operator
     app.kubernetes.io/managed-by: kustomize
     rbac.authorization.k8s.io/aggregate-to-view: "true"
   name: workspace-viewer-role
@@ -176,7 +176,7 @@ Then register them in `config/rbac/kustomization.yaml`:
 resources:
   # For each CRD, "Admin", "Editor" and "Viewer" roles are scaffolded by
   # default, aiding admins in cluster management. Those roles are
-  # not used by the operator-template itself. You can comment the following lines
+  # not used by the addons-operator itself. You can comment the following lines
   # if you do not want those helpers be installed with your Project.
   - module_admin_role.yaml
   - module_editor_role.yaml
