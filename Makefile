@@ -53,12 +53,18 @@ generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and
 	"$(CONTROLLER_GEN)" object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 API_VERSION ?= $(call gomodver,github.com/otterscale/api)
+FLUX_HELM_VERSION ?= $(call gomodver,github.com/fluxcd/helm-controller/api)
+FLUX_KUSTOMIZE_VERSION ?= $(call gomodver,github.com/fluxcd/kustomize-controller/api)
 
 .PHONY: download-crds
 download-crds: ## Download CRDs from the API module release.
 	@mkdir -p config/crd/bases
 	curl -sSL -o config/crd/bases/crds.yaml \
 		https://github.com/otterscale/api/releases/download/$(API_VERSION)/crds.yaml
+	curl -sSL -o config/crd/bases/flux-helm-controller.yaml \
+		https://github.com/fluxcd/helm-controller/releases/download/$(FLUX_HELM_VERSION)/helm-controller.crds.yaml
+	curl -sSL -o config/crd/bases/flux-kustomize-controller.yaml \
+		https://github.com/fluxcd/kustomize-controller/releases/download/$(FLUX_KUSTOMIZE_VERSION)/kustomize-controller.crds.yaml
 
 .PHONY: fmt
 fmt: ## Run go fmt against code.
