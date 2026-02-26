@@ -10,4 +10,13 @@ plugins:
   autoupdate.kubebuilder.io/v1-alpha: {}
 projectName: addons-operator
 repo: github.com/otterscale/addons-operator
+resources:
+- controller: true
+  domain: otterscale.io
+  external: true
+  group: addons
+  kind: Module
+  module: github.com/otterscale/api
+  path: github.com/otterscale/api/addons/v1alpha1
+  version: v1alpha1
 version: "3"
