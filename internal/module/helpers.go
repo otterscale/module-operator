@@ -17,10 +17,18 @@ limitations under the License.
 package module
 
 import (
+	"context"
 	"fmt"
 
-	"github.com/otterscale/addons-operator/internal/labels"
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
+
 	addonsv1alpha1 "github.com/otterscale/api/addons/v1alpha1"
+
+	"github.com/otterscale/addons-operator/internal/labels"
 )
 
 const (
@@ -76,4 +84,19 @@ func TargetNamespace(m *addonsv1alpha1.Module, mt *addonsv1alpha1.ModuleTemplate
 		return *m.Spec.Namespace
 	}
 	return mt.Spec.Namespace
+}
+
+// EnsureNamespace creates the namespace if it does not already exist.
+func EnsureNamespace(ctx context.Context, c client.Client, name string) error {
+	ns := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{Name: name},
+	}
+	if err := c.Create(ctx, ns); err != nil {
+		if apierrors.IsAlreadyExists(err) {
+			return nil
+		}
+		return err
+	}
+	log.FromContext(ctx).Info("Created namespace", "namespace", name)
+	return nil
 }

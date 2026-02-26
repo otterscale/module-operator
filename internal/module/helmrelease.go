@@ -63,6 +63,10 @@ func ReconcileHelmRelease(
 
 	targetNS := TargetNamespace(m, mt)
 
+	if err := EnsureNamespace(ctx, c, targetNS); err != nil {
+		return err
+	}
+
 	hr := &helmv2.HelmRelease{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      m.Name,
