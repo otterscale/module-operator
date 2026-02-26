@@ -215,7 +215,7 @@ var _ = Describe("Module Controller", func() {
 
 			By("Verifying labels on the HelmRelease")
 			Expect(hr.Labels).To(HaveKeyWithValue(labels.Name, moduleName))
-			Expect(hr.Labels).To(HaveKeyWithValue(labels.ManagedBy, "otterscale-operator"))
+			Expect(hr.Labels).To(HaveKeyWithValue(labels.ManagedBy, "addons-operator"))
 			Expect(hr.Labels).To(HaveKeyWithValue(labels.Component, "module"))
 			Expect(hr.Labels).To(HaveKeyWithValue(labels.Version, version))
 			Expect(hr.Labels).To(HaveKeyWithValue(mod.LabelModuleTemplate, templateName))
@@ -276,7 +276,7 @@ var _ = Describe("Module Controller", func() {
 
 			By("Verifying labels on the Kustomization")
 			Expect(ks.Labels).To(HaveKeyWithValue(labels.Name, moduleName))
-			Expect(ks.Labels).To(HaveKeyWithValue(labels.ManagedBy, "otterscale-operator"))
+			Expect(ks.Labels).To(HaveKeyWithValue(labels.ManagedBy, "addons-operator"))
 
 			By("Verifying Module status")
 			fetchResource(module, moduleName, "")
@@ -578,8 +578,8 @@ var _ = Describe("Module Controller", func() {
 		It("should generate correct labels", func() {
 			moduleLabels := mod.LabelsForModule("my-module", "my-template", "v1.0.0")
 			Expect(moduleLabels).To(HaveKeyWithValue(labels.Name, "my-module"))
-			Expect(moduleLabels).To(HaveKeyWithValue(labels.ManagedBy, "otterscale-operator"))
-			Expect(moduleLabels).To(HaveKeyWithValue(labels.PartOf, "otterscale"))
+			Expect(moduleLabels).To(HaveKeyWithValue(labels.ManagedBy, "addons-operator"))
+			Expect(moduleLabels).To(HaveKeyWithValue(labels.PartOf, "otterscale-system"))
 			Expect(moduleLabels).To(HaveKeyWithValue(labels.Component, "module"))
 			Expect(moduleLabels).To(HaveKeyWithValue(labels.Version, "v1.0.0"))
 			Expect(moduleLabels).To(HaveKeyWithValue(mod.LabelModuleTemplate, "my-template"))

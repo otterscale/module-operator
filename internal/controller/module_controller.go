@@ -494,7 +494,7 @@ func (r *ModuleReconciler) mapFluxResourceToModule(_ context.Context, obj client
 	}
 
 	// Only handle resources managed by us
-	if objLabels[labels.ManagedBy] != "otterscale-operator" || objLabels[labels.Component] != "module" {
+	if objLabels[labels.ManagedBy] != "addons-operator" || objLabels[labels.Component] != "module" {
 		return nil
 	}
 
