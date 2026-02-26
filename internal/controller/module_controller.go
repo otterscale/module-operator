@@ -66,6 +66,7 @@ type ModuleReconciler struct {
 // +kubebuilder:rbac:groups=addons.otterscale.io,resources=modules/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=addons.otterscale.io,resources=modules/finalizers,verbs=update
 // +kubebuilder:rbac:groups=addons.otterscale.io,resources=moduletemplates,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;create
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 // +kubebuilder:rbac:groups=helm.toolkit.fluxcd.io,resources=helmreleases,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=kustomize.toolkit.fluxcd.io,resources=kustomizations,verbs=get;list;watch;create;update;patch;delete

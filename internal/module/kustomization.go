@@ -62,6 +62,10 @@ func ReconcileKustomization(
 
 	targetNS := TargetNamespace(m, mt)
 
+	if err := EnsureNamespace(ctx, c, targetNS); err != nil {
+		return err
+	}
+
 	ks := &kustomizev1.Kustomization{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      m.Name,
