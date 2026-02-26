@@ -298,6 +298,8 @@ func (r *ModuleReconciler) updateStatus(ctx context.Context, m *addonsv1alpha1.M
 		observeNS = r.namespaceFromStatusRefs(m)
 	}
 
+	newStatus.Namespace = observeNS
+
 	// Observe the FluxCD resource status (uses the currently deployed namespace)
 	if observeNS != "" {
 		readyStatus, readyReason, readyMessage := r.observeFluxResourceStatus(ctx, m, mt, observeNS)
