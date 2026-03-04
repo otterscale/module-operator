@@ -33,9 +33,9 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	addonsv1alpha1 "github.com/otterscale/api/addons/v1alpha1"
+	modulev1alpha1 "github.com/otterscale/api/module/v1alpha1"
 
-	"github.com/otterscale/addons-operator/internal/controller"
+	"github.com/otterscale/module-operator/internal/controller"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -48,7 +48,7 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	utilruntime.Must(addonsv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(modulev1alpha1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -141,7 +141,7 @@ func main() {
 		WebhookServer:          webhookServer,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "addons-operator-leader-election",
+		LeaderElectionID:       "module-operator-leader-election",
 	})
 	if err != nil {
 		setupLog.Error(err, "Failed to start manager")
