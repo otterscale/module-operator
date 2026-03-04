@@ -21,107 +21,107 @@ import (
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/otterscale/addons-operator/internal/module"
-	addonsv1alpha1 "github.com/otterscale/api/addons/v1alpha1"
+	modulev1alpha1 "github.com/otterscale/api/module/v1alpha1"
+	"github.com/otterscale/module-operator/internal/module"
 )
 
 var _ = Describe("CheckUpgrade", func() {
 
 	Describe("initial install detection", func() {
-		It("returns UpgradeInitialInstall when appliedTemplateGeneration is zero", func() {
-			m := &addonsv1alpha1.Module{
-				Status: addonsv1alpha1.ModuleStatus{
-					AppliedTemplateGeneration: 0,
+		It("returns UpgradeInitialInstall when appliedClassGeneration is zero", func() {
+			m := &modulev1alpha1.Module{
+				Status: modulev1alpha1.ModuleStatus{
+					AppliedClassGeneration: 0,
 				},
 			}
-			mt := &addonsv1alpha1.ModuleTemplate{
+			mc := &modulev1alpha1.ModuleClass{
 				ObjectMeta: metav1.ObjectMeta{Generation: 1},
 			}
 
-			Expect(module.CheckUpgrade(m, mt)).To(Equal(module.UpgradeInitialInstall))
+			Expect(module.CheckUpgrade(m, mc)).To(Equal(module.UpgradeInitialInstall))
 		})
 	})
 
 	Describe("no-change detection", func() {
-		It("returns UpgradeNotNeeded when template generation equals applied", func() {
-			m := &addonsv1alpha1.Module{
-				Status: addonsv1alpha1.ModuleStatus{
-					AppliedTemplateGeneration: 3,
+		It("returns UpgradeNotNeeded when class generation equals applied", func() {
+			m := &modulev1alpha1.Module{
+				Status: modulev1alpha1.ModuleStatus{
+					AppliedClassGeneration: 3,
 				},
 			}
-			mt := &addonsv1alpha1.ModuleTemplate{
+			mc := &modulev1alpha1.ModuleClass{
 				ObjectMeta: metav1.ObjectMeta{Generation: 3},
 			}
 
-			Expect(module.CheckUpgrade(m, mt)).To(Equal(module.UpgradeNotNeeded))
+			Expect(module.CheckUpgrade(m, mc)).To(Equal(module.UpgradeNotNeeded))
 		})
 	})
 
 	Describe("auto-approve (backward compatible)", func() {
-		It("returns UpgradeApproved when approvedTemplateGeneration is nil", func() {
-			m := &addonsv1alpha1.Module{
-				Spec: addonsv1alpha1.ModuleSpec{
-					ApprovedTemplateGeneration: nil,
+		It("returns UpgradeApproved when approvedClassGeneration is nil", func() {
+			m := &modulev1alpha1.Module{
+				Spec: modulev1alpha1.ModuleSpec{
+					ApprovedClassGeneration: nil,
 				},
-				Status: addonsv1alpha1.ModuleStatus{
-					AppliedTemplateGeneration: 1,
+				Status: modulev1alpha1.ModuleStatus{
+					AppliedClassGeneration: 1,
 				},
 			}
-			mt := &addonsv1alpha1.ModuleTemplate{
+			mc := &modulev1alpha1.ModuleClass{
 				ObjectMeta: metav1.ObjectMeta{Generation: 2},
 			}
 
-			Expect(module.CheckUpgrade(m, mt)).To(Equal(module.UpgradeApproved))
+			Expect(module.CheckUpgrade(m, mc)).To(Equal(module.UpgradeApproved))
 		})
 	})
 
 	Describe("explicit approval", func() {
-		DescribeTable("returns UpgradeApproved when approved generation covers the template",
-			func(approved int64, templateGen int64) {
-				m := &addonsv1alpha1.Module{
-					Spec: addonsv1alpha1.ModuleSpec{
-						ApprovedTemplateGeneration: new(approved),
+		DescribeTable("returns UpgradeApproved when approved generation covers the class",
+			func(approved int64, classGen int64) {
+				m := &modulev1alpha1.Module{
+					Spec: modulev1alpha1.ModuleSpec{
+						ApprovedClassGeneration: new(approved),
 					},
-					Status: addonsv1alpha1.ModuleStatus{
-						AppliedTemplateGeneration: 3,
+					Status: modulev1alpha1.ModuleStatus{
+						AppliedClassGeneration: 3,
 					},
 				}
-				mt := &addonsv1alpha1.ModuleTemplate{
-					ObjectMeta: metav1.ObjectMeta{Generation: templateGen},
+				mc := &modulev1alpha1.ModuleClass{
+					ObjectMeta: metav1.ObjectMeta{Generation: classGen},
 				}
 
-				Expect(module.CheckUpgrade(m, mt)).To(Equal(module.UpgradeApproved))
+				Expect(module.CheckUpgrade(m, mc)).To(Equal(module.UpgradeApproved))
 			},
 			Entry("exact match", int64(5), int64(5)),
-			Entry("pre-approved (exceeds template generation)", int64(10), int64(5)),
+			Entry("pre-approved (exceeds class generation)", int64(10), int64(5)),
 		)
 	})
 
 	Describe("pending approval", func() {
 		DescribeTable("returns UpgradePending when approved generation is insufficient",
-			func(approved int64, applied int64, templateGen int64) {
-				m := &addonsv1alpha1.Module{
-					Spec: addonsv1alpha1.ModuleSpec{
-						ApprovedTemplateGeneration: new(approved),
+			func(approved int64, applied int64, classGen int64) {
+				m := &modulev1alpha1.Module{
+					Spec: modulev1alpha1.ModuleSpec{
+						ApprovedClassGeneration: new(approved),
 					},
-					Status: addonsv1alpha1.ModuleStatus{
-						AppliedTemplateGeneration: applied,
+					Status: modulev1alpha1.ModuleStatus{
+						AppliedClassGeneration: applied,
 					},
 				}
-				mt := &addonsv1alpha1.ModuleTemplate{
-					ObjectMeta: metav1.ObjectMeta{Generation: templateGen},
+				mc := &modulev1alpha1.ModuleClass{
+					ObjectMeta: metav1.ObjectMeta{Generation: classGen},
 				}
 
-				Expect(module.CheckUpgrade(m, mt)).To(Equal(module.UpgradePending))
+				Expect(module.CheckUpgrade(m, mc)).To(Equal(module.UpgradePending))
 			},
-			Entry("approved below template generation", int64(2), int64(2), int64(3)),
+			Entry("approved below class generation", int64(2), int64(2), int64(3)),
 			Entry("approved explicitly set to zero", int64(0), int64(1), int64(2)),
 		)
 	})
 })
 
 var _ = Describe("UpgradeDecision.ShouldApply", func() {
-	DescribeTable("returns whether the decision permits applying template changes",
+	DescribeTable("returns whether the decision permits applying class changes",
 		func(decision module.UpgradeDecision, expected bool) {
 			Expect(decision.ShouldApply()).To(Equal(expected))
 		},

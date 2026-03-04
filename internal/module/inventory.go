@@ -23,18 +23,18 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	addonsv1alpha1 "github.com/otterscale/api/addons/v1alpha1"
+	modulev1alpha1 "github.com/otterscale/api/module/v1alpha1"
 )
 
 // buildInventory creates an inventory list from a set of unstructured
 // Kubernetes objects. Each entry records the object's identity so that
 // future reconciliations can detect and prune removed resources.
-func buildInventory(objects []*unstructured.Unstructured) []addonsv1alpha1.InventoryEntry {
-	entries := make([]addonsv1alpha1.InventoryEntry, 0, len(objects))
+func buildInventory(objects []*unstructured.Unstructured) []modulev1alpha1.InventoryEntry {
+	entries := make([]modulev1alpha1.InventoryEntry, 0, len(objects))
 	for _, obj := range objects {
 		gvk := obj.GroupVersionKind()
 		id := inventoryID(obj.GetNamespace(), obj.GetName(), gvk.Group, gvk.Kind)
-		entries = append(entries, addonsv1alpha1.InventoryEntry{
+		entries = append(entries, modulev1alpha1.InventoryEntry{
 			ID:      id,
 			Version: gvk.GroupVersion().String(),
 		})
@@ -44,12 +44,12 @@ func buildInventory(objects []*unstructured.Unstructured) []addonsv1alpha1.Inven
 
 // diffInventory returns the entries present in old but absent from current,
 // representing resources that should be pruned.
-func diffInventory(old, current []addonsv1alpha1.InventoryEntry) []addonsv1alpha1.InventoryEntry {
+func diffInventory(old, current []modulev1alpha1.InventoryEntry) []modulev1alpha1.InventoryEntry {
 	currentSet := make(map[string]struct{}, len(current))
 	for _, e := range current {
 		currentSet[e.ID] = struct{}{}
 	}
-	var stale []addonsv1alpha1.InventoryEntry
+	var stale []modulev1alpha1.InventoryEntry
 	for _, e := range old {
 		if _, ok := currentSet[e.ID]; !ok {
 			stale = append(stale, e)
@@ -68,7 +68,7 @@ func parseInventoryID(id string) (namespace, name, group, kind string) {
 }
 
 // inventoryGVK reconstructs a GVK from an inventory entry.
-func inventoryGVK(entry addonsv1alpha1.InventoryEntry) schema.GroupVersionKind {
+func inventoryGVK(entry modulev1alpha1.InventoryEntry) schema.GroupVersionKind {
 	ns, _, group, kind := parseInventoryID(entry.ID)
 	_ = ns
 	gv, _ := schema.ParseGroupVersion(entry.Version)

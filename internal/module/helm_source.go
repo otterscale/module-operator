@@ -32,7 +32,7 @@ import (
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/registry"
 
-	addonsv1alpha1 "github.com/otterscale/api/addons/v1alpha1"
+	modulev1alpha1 "github.com/otterscale/api/module/v1alpha1"
 )
 
 // ChartFetchError indicates a transient failure while downloading or
@@ -49,10 +49,10 @@ func (e *ChartFetchError) Error() string {
 
 func (e *ChartFetchError) Unwrap() error { return e.Err }
 
-// loadChart downloads and loads a Helm chart based on the template's
+// loadChart downloads and loads a Helm chart based on the class's
 // repository configuration. It supports both traditional Helm repositories
 // and OCI registries.
-func loadChart(ctx context.Context, c client.Client, ht *addonsv1alpha1.HelmChartTemplate, namespace string) (*chart.Chart, error) {
+func loadChart(ctx context.Context, c client.Client, ht *modulev1alpha1.HelmChartTemplate, namespace string) (*chart.Chart, error) {
 	settings := cli.New()
 	settings.RepositoryCache = os.TempDir()
 
@@ -71,7 +71,7 @@ func loadChart(ctx context.Context, c client.Client, ht *addonsv1alpha1.HelmChar
 	return loadRepoChart(settings, ht, username, password)
 }
 
-func loadRepoChart(settings *cli.EnvSettings, ht *addonsv1alpha1.HelmChartTemplate, username, password string) (*chart.Chart, error) {
+func loadRepoChart(settings *cli.EnvSettings, ht *modulev1alpha1.HelmChartTemplate, username, password string) (*chart.Chart, error) {
 	pull := action.NewPullWithOpts(action.WithConfig(new(action.Configuration)))
 	pull.RepoURL = ht.RepoURL
 	pull.Settings = settings
@@ -99,7 +99,7 @@ func loadRepoChart(settings *cli.EnvSettings, ht *addonsv1alpha1.HelmChartTempla
 	return ch, nil
 }
 
-func loadOCIChart(settings *cli.EnvSettings, ht *addonsv1alpha1.HelmChartTemplate, username, password string) (*chart.Chart, error) {
+func loadOCIChart(settings *cli.EnvSettings, ht *modulev1alpha1.HelmChartTemplate, username, password string) (*chart.Chart, error) {
 	var registryOpts []registry.ClientOption
 	registryClient, err := registry.NewClient(registryOpts...)
 	if err != nil {

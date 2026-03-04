@@ -38,14 +38,14 @@ import (
 	"sigs.k8s.io/kustomize/kyaml/filesys"
 	"sigs.k8s.io/kustomize/kyaml/resid"
 
-	addonsv1alpha1 "github.com/otterscale/api/addons/v1alpha1"
+	modulev1alpha1 "github.com/otterscale/api/module/v1alpha1"
 )
 
 // KustomizeReconcileResult contains the outcome of a Kustomize
 // reconciliation cycle.
 type KustomizeReconcileResult struct {
 	LastAppliedRevision string
-	Inventory           []addonsv1alpha1.InventoryEntry
+	Inventory           []modulev1alpha1.InventoryEntry
 }
 
 // ReconcileKustomization clones the source repository, builds the
@@ -55,19 +55,19 @@ func ReconcileKustomization(
 	ctx context.Context,
 	c client.Client,
 	restCfg *rest.Config,
-	m *addonsv1alpha1.Module,
-	mt *addonsv1alpha1.ModuleTemplate,
+	m *modulev1alpha1.Module,
+	mc *modulev1alpha1.ModuleClass,
 	operatorVersion string,
 ) (*KustomizeReconcileResult, error) {
-	if mt.Spec.Kustomization == nil {
-		return nil, &TemplateInvalidError{
-			Name:    mt.Name,
-			Message: "kustomization spec is nil but Module expects a Kustomization template",
+	if mc.Spec.Kustomization == nil {
+		return nil, &ClassInvalidError{
+			Name:    mc.Name,
+			Message: "kustomization spec is nil but Module expects a Kustomization class",
 		}
 	}
 
-	kt := mt.Spec.Kustomization
-	targetNS := TargetNamespace(m, mt)
+	kt := mc.Spec.Kustomization
+	targetNS := TargetNamespace(m, mc)
 
 	if err := EnsureNamespace(ctx, c, targetNS); err != nil {
 		return nil, err
@@ -85,7 +85,7 @@ func ReconcileKustomization(
 	}
 
 	if err := applyPatches(kustomizePath, kt.Patches); err != nil {
-		return nil, &TemplateInvalidError{Name: mt.Name, Message: fmt.Sprintf("applying patches: %v", err)}
+		return nil, &ClassInvalidError{Name: mc.Name, Message: fmt.Sprintf("applying patches: %v", err)}
 	}
 
 	objects, err := buildKustomization(kustomizePath)
@@ -131,7 +131,7 @@ func ReconcileKustomization(
 }
 
 // DeleteKustomization prunes all resources tracked in the Module's inventory.
-func DeleteKustomization(ctx context.Context, restCfg *rest.Config, inventory []addonsv1alpha1.InventoryEntry) error {
+func DeleteKustomization(ctx context.Context, restCfg *rest.Config, inventory []modulev1alpha1.InventoryEntry) error {
 	if len(inventory) == 0 {
 		return nil
 	}
@@ -181,7 +181,7 @@ func decodeYAMLManifests(data []byte) ([]*unstructured.Unstructured, error) {
 	return objects, nil
 }
 
-func applyPatches(kustomizePath string, patches []addonsv1alpha1.KustomizePatch) error {
+func applyPatches(kustomizePath string, patches []modulev1alpha1.KustomizePatch) error {
 	if len(patches) == 0 {
 		return nil
 	}

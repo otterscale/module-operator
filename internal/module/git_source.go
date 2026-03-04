@@ -34,7 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	addonsv1alpha1 "github.com/otterscale/api/addons/v1alpha1"
+	modulev1alpha1 "github.com/otterscale/api/module/v1alpha1"
 )
 
 // SourceFetchError indicates a transient failure while cloning or
@@ -59,7 +59,7 @@ type gitCheckoutResult struct {
 
 // cloneRepository clones the Git repository described by the
 // KustomizationTemplate into a temporary directory.
-func cloneRepository(ctx context.Context, c client.Client, kt *addonsv1alpha1.KustomizationTemplate, namespace string) (*gitCheckoutResult, error) {
+func cloneRepository(ctx context.Context, c client.Client, kt *modulev1alpha1.KustomizationTemplate, namespace string) (*gitCheckoutResult, error) {
 	logger := log.FromContext(ctx)
 
 	dir, err := os.MkdirTemp("", "module-git-*")
@@ -129,7 +129,7 @@ func cloneRepository(ctx context.Context, c client.Client, kt *addonsv1alpha1.Ku
 	return &gitCheckoutResult{Dir: dir, Commit: commitSHA}, nil
 }
 
-func resolveGitReference(ref *addonsv1alpha1.GitReference) string {
+func resolveGitReference(ref *modulev1alpha1.GitReference) string {
 	if ref == nil {
 		return ""
 	}

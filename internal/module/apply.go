@@ -29,13 +29,13 @@ import (
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	addonsv1alpha1 "github.com/otterscale/api/addons/v1alpha1"
+	modulev1alpha1 "github.com/otterscale/api/module/v1alpha1"
 )
 
-const fieldManager = "addons-operator"
+const fieldManager = "module-operator"
 
 // serverSideApply applies a list of unstructured objects using
-// server-side apply, ensuring the addons-operator owns the fields it manages.
+// server-side apply, ensuring the module-operator owns the fields it manages.
 func serverSideApply(ctx context.Context, restCfg *rest.Config, mapper meta.RESTMapper, objects []*unstructured.Unstructured, force bool) error {
 	dc, err := dynamic.NewForConfig(restCfg)
 	if err != nil {
@@ -83,7 +83,7 @@ func serverSideApply(ctx context.Context, restCfg *rest.Config, mapper meta.REST
 
 // pruneResources deletes resources that are present in the stale inventory
 // entries but no longer part of the desired state.
-func pruneResources(ctx context.Context, restCfg *rest.Config, mapper meta.RESTMapper, stale []addonsv1alpha1.InventoryEntry) error {
+func pruneResources(ctx context.Context, restCfg *rest.Config, mapper meta.RESTMapper, stale []modulev1alpha1.InventoryEntry) error {
 	if len(stale) == 0 {
 		return nil
 	}

@@ -42,8 +42,8 @@ import (
 
 	"k8s.io/client-go/tools/events"
 
-	mod "github.com/otterscale/addons-operator/internal/module"
-	addonsv1alpha1 "github.com/otterscale/api/addons/v1alpha1"
+	modulev1alpha1 "github.com/otterscale/api/module/v1alpha1"
+	mod "github.com/otterscale/module-operator/internal/module"
 )
 
 // ModuleReconciler reconciles a Module object.
@@ -61,10 +61,10 @@ type ModuleReconciler struct {
 }
 
 // RBAC Permissions required by the controller:
-// +kubebuilder:rbac:groups=addons.otterscale.io,resources=modules,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=addons.otterscale.io,resources=modules/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=addons.otterscale.io,resources=modules/finalizers,verbs=update
-// +kubebuilder:rbac:groups=addons.otterscale.io,resources=moduletemplates,verbs=get;list;watch
+// +kubebuilder:rbac:groups=module.otterscale.io,resources=modules,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=module.otterscale.io,resources=modules/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=module.otterscale.io,resources=modules/finalizers,verbs=update
+// +kubebuilder:rbac:groups=module.otterscale.io,resources=moduleclasses,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;create
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 // +kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;patch
@@ -72,12 +72,12 @@ type ModuleReconciler struct {
 
 // Reconcile is the main loop for the Module controller.
 // It implements the level-triggered reconciliation logic:
-// Fetch -> Finalizer -> Fetch Template -> Check Upgrade -> Reconcile Resources -> Status Update.
+// Fetch -> Finalizer -> Fetch Class -> Check Upgrade -> Reconcile Resources -> Status Update.
 func (r *ModuleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx).WithName(req.Name)
 	ctx = log.IntoContext(ctx, logger)
 
-	var m addonsv1alpha1.Module
+	var m modulev1alpha1.Module
 	if err := r.Get(ctx, req.NamespacedName, &m); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
@@ -94,47 +94,47 @@ func (r *ModuleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		}
 	}
 
-	mt, err := r.fetchModuleTemplate(ctx, m.Spec.TemplateRef)
+	mc, err := r.fetchModuleClass(ctx, m.Spec.ModuleClassName)
 	if err != nil {
 		return r.handleReconcileError(ctx, &m, err)
 	}
 
-	decision := mod.CheckUpgrade(&m, mt)
+	decision := mod.CheckUpgrade(&m, mc)
 
 	var requeueAfter ctrl.Result
 
 	if decision.ShouldApply() {
-		result, reconcileErr := r.reconcileResources(ctx, &m, mt)
+		result, reconcileErr := r.reconcileResources(ctx, &m, mc)
 		if reconcileErr != nil {
 			return r.handleReconcileError(ctx, &m, reconcileErr)
 		}
-		if err := r.updateStatus(ctx, &m, mt, decision, result); err != nil {
+		if err := r.updateStatus(ctx, &m, mc, decision, result); err != nil {
 			return ctrl.Result{}, err
 		}
-		requeueAfter = r.requeueInterval(mt)
+		requeueAfter = r.requeueInterval(mc)
 	} else {
 		logger.Info("Upgrade pending approval",
-			"available", mt.Generation,
-			"applied", m.Status.AppliedTemplateGeneration)
-		if err := r.updateStatus(ctx, &m, mt, decision, nil); err != nil {
+			"available", mc.Generation,
+			"applied", m.Status.AppliedClassGeneration)
+		if err := r.updateStatus(ctx, &m, mc, decision, nil); err != nil {
 			return ctrl.Result{}, err
 		}
-		requeueAfter = r.requeueInterval(mt)
+		requeueAfter = r.requeueInterval(mc)
 	}
 
 	return requeueAfter, nil
 }
 
-// fetchModuleTemplate retrieves the ModuleTemplate referenced by the Module.
-func (r *ModuleReconciler) fetchModuleTemplate(ctx context.Context, name string) (*addonsv1alpha1.ModuleTemplate, error) {
-	var mt addonsv1alpha1.ModuleTemplate
-	if err := r.Get(ctx, types.NamespacedName{Name: name}, &mt); err != nil {
+// fetchModuleClass retrieves the ModuleClass referenced by the Module.
+func (r *ModuleReconciler) fetchModuleClass(ctx context.Context, name string) (*modulev1alpha1.ModuleClass, error) {
+	var mc modulev1alpha1.ModuleClass
+	if err := r.Get(ctx, types.NamespacedName{Name: name}, &mc); err != nil {
 		if apierrors.IsNotFound(err) {
-			return nil, &mod.TemplateNotFoundError{Name: name}
+			return nil, &mod.ClassNotFoundError{Name: name}
 		}
 		return nil, err
 	}
-	return &mt, nil
+	return &mc, nil
 }
 
 // reconcileResult is a union type carrying the outcome of either a Helm
@@ -145,24 +145,24 @@ type reconcileResult struct {
 }
 
 // reconcileResources dispatches to the appropriate domain function
-// based on the template type (HelmChart or Kustomization).
-func (r *ModuleReconciler) reconcileResources(ctx context.Context, m *addonsv1alpha1.Module, mt *addonsv1alpha1.ModuleTemplate) (*reconcileResult, error) {
+// based on the class type (HelmChart or Kustomization).
+func (r *ModuleReconciler) reconcileResources(ctx context.Context, m *modulev1alpha1.Module, mc *modulev1alpha1.ModuleClass) (*reconcileResult, error) {
 	switch {
-	case mt.Spec.HelmChart != nil:
-		res, err := mod.ReconcileHelmChart(ctx, r.Client, r.RestConfig, m, mt, r.Version)
+	case mc.Spec.HelmChart != nil:
+		res, err := mod.ReconcileHelmChart(ctx, r.Client, r.RestConfig, m, mc, r.Version)
 		if err != nil {
 			return nil, err
 		}
 		return &reconcileResult{Helm: res}, nil
-	case mt.Spec.Kustomization != nil:
-		res, err := mod.ReconcileKustomization(ctx, r.Client, r.RestConfig, m, mt, r.Version)
+	case mc.Spec.Kustomization != nil:
+		res, err := mod.ReconcileKustomization(ctx, r.Client, r.RestConfig, m, mc, r.Version)
 		if err != nil {
 			return nil, err
 		}
 		return &reconcileResult{Kustomize: res}, nil
 	default:
-		return nil, &mod.TemplateInvalidError{
-			Name:    mt.Name,
+		return nil, &mod.ClassInvalidError{
+			Name:    mc.Name,
 			Message: "neither helmChart nor kustomization is defined",
 		}
 	}
@@ -171,7 +171,7 @@ func (r *ModuleReconciler) reconcileResources(ctx context.Context, m *addonsv1al
 // reconcileDelete handles the deletion flow:
 // 1. Clean up managed resources (Helm uninstall or Kustomize prune)
 // 2. Remove the Finalizer
-func (r *ModuleReconciler) reconcileDelete(ctx context.Context, m *addonsv1alpha1.Module) (ctrl.Result, error) {
+func (r *ModuleReconciler) reconcileDelete(ctx context.Context, m *modulev1alpha1.Module) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
 	if ctrlutil.ContainsFinalizer(m, mod.ModuleFinalizer) {
@@ -180,9 +180,9 @@ func (r *ModuleReconciler) reconcileDelete(ctx context.Context, m *addonsv1alpha
 		if m.Status.HelmRelease != nil {
 			namespace := r.resolveCleanupNamespace(ctx, m)
 			releaseName := m.Name
-			mt, err := r.fetchModuleTemplate(ctx, m.Spec.TemplateRef)
-			if err == nil && mt.Spec.HelmChart != nil && mt.Spec.HelmChart.ReleaseName != "" {
-				releaseName = mt.Spec.HelmChart.ReleaseName
+			mc, err := r.fetchModuleClass(ctx, m.Spec.ModuleClassName)
+			if err == nil && mc.Spec.HelmChart != nil && mc.Spec.HelmChart.ReleaseName != "" {
+				releaseName = mc.Spec.HelmChart.ReleaseName
 			}
 			if namespace != "" {
 				if err := mod.UninstallHelmChart(ctx, r.RestConfig, releaseName, namespace); err != nil {
@@ -208,38 +208,38 @@ func (r *ModuleReconciler) reconcileDelete(ctx context.Context, m *addonsv1alpha
 }
 
 // resolveCleanupNamespace determines the namespace of managed resources for cleanup.
-func (r *ModuleReconciler) resolveCleanupNamespace(ctx context.Context, m *addonsv1alpha1.Module) string {
+func (r *ModuleReconciler) resolveCleanupNamespace(ctx context.Context, m *modulev1alpha1.Module) string {
 	if m.Status.Namespace != "" {
 		return m.Status.Namespace
 	}
 	if m.Spec.Namespace != nil {
 		return *m.Spec.Namespace
 	}
-	mt, err := r.fetchModuleTemplate(ctx, m.Spec.TemplateRef)
+	mc, err := r.fetchModuleClass(ctx, m.Spec.ModuleClassName)
 	if err != nil {
 		return ""
 	}
-	return mt.Spec.Namespace
+	return mc.Spec.Namespace
 }
 
 // handleReconcileError categorizes errors and updates status accordingly.
-// Permanent errors (TemplateNotFound, TemplateInvalid) do NOT requeue.
+// Permanent errors (ClassNotFound, ClassInvalid) do NOT requeue.
 // Transient errors are returned to controller-runtime for exponential backoff retry.
-func (r *ModuleReconciler) handleReconcileError(ctx context.Context, m *addonsv1alpha1.Module, err error) (ctrl.Result, error) {
-	var tnf *mod.TemplateNotFoundError
-	var tie *mod.TemplateInvalidError
+func (r *ModuleReconciler) handleReconcileError(ctx context.Context, m *modulev1alpha1.Module, err error) (ctrl.Result, error) {
+	var cnf *mod.ClassNotFoundError
+	var cie *mod.ClassInvalidError
 	var cfe *mod.ChartFetchError
 	var sfe *mod.SourceFetchError
 
 	switch {
-	case errors.As(err, &tnf):
-		r.setReadyConditionFalse(ctx, m, "TemplateNotFound", err.Error())
-		r.Recorder.Eventf(m, nil, corev1.EventTypeWarning, "TemplateNotFound", "Reconcile", err.Error())
+	case errors.As(err, &cnf):
+		r.setReadyConditionFalse(ctx, m, "ClassNotFound", err.Error())
+		r.Recorder.Eventf(m, nil, corev1.EventTypeWarning, "ClassNotFound", "Reconcile", err.Error())
 		return ctrl.Result{}, nil
 
-	case errors.As(err, &tie):
-		r.setReadyConditionFalse(ctx, m, "TemplateInvalid", err.Error())
-		r.Recorder.Eventf(m, nil, corev1.EventTypeWarning, "TemplateInvalid", "Reconcile", err.Error())
+	case errors.As(err, &cie):
+		r.setReadyConditionFalse(ctx, m, "ClassInvalid", err.Error())
+		r.Recorder.Eventf(m, nil, corev1.EventTypeWarning, "ClassInvalid", "Reconcile", err.Error())
 		return ctrl.Result{}, nil
 
 	case errors.As(err, &cfe):
@@ -260,7 +260,7 @@ func (r *ModuleReconciler) handleReconcileError(ctx context.Context, m *addonsv1
 }
 
 // setReadyConditionFalse updates the Ready condition to False via status patch.
-func (r *ModuleReconciler) setReadyConditionFalse(ctx context.Context, m *addonsv1alpha1.Module, reason, message string) {
+func (r *ModuleReconciler) setReadyConditionFalse(ctx context.Context, m *modulev1alpha1.Module, reason, message string) {
 	logger := log.FromContext(ctx)
 
 	patch := client.MergeFrom(m.DeepCopy())
@@ -283,31 +283,31 @@ func (r *ModuleReconciler) setReadyConditionFalse(ctx context.Context, m *addons
 // of observing external resources.
 func (r *ModuleReconciler) updateStatus(
 	ctx context.Context,
-	m *addonsv1alpha1.Module,
-	mt *addonsv1alpha1.ModuleTemplate,
+	m *modulev1alpha1.Module,
+	mc *modulev1alpha1.ModuleClass,
 	decision mod.UpgradeDecision,
 	result *reconcileResult,
 ) error {
 	newStatus := m.Status.DeepCopy()
 	newStatus.ObservedGeneration = m.Generation
-	newStatus.AvailableTemplateGeneration = mt.Generation
+	newStatus.AvailableClassGeneration = mc.Generation
 
-	targetNS := mod.TargetNamespace(m, mt)
+	targetNS := mod.TargetNamespace(m, mc)
 	newStatus.Namespace = targetNS
 
 	switch decision {
 	case mod.UpgradeInitialInstall, mod.UpgradeApproved:
-		newStatus.AppliedTemplateGeneration = mt.Generation
+		newStatus.AppliedClassGeneration = mc.Generation
 	case mod.UpgradeNotNeeded:
-		// keep existing AppliedTemplateGeneration
+		// keep existing AppliedClassGeneration
 	case mod.UpgradePending:
-		// don't update AppliedTemplateGeneration
+		// don't update AppliedClassGeneration
 	}
 
 	if result != nil {
 		switch {
 		case result.Helm != nil:
-			newStatus.HelmRelease = &addonsv1alpha1.HelmReleaseStatus{
+			newStatus.HelmRelease = &modulev1alpha1.HelmReleaseStatus{
 				ChartVersion:   result.Helm.ChartVersion,
 				Revision:       result.Helm.Revision,
 				Status:         result.Helm.Status,
@@ -325,7 +325,7 @@ func (r *ModuleReconciler) updateStatus(
 			})
 
 		case result.Kustomize != nil:
-			newStatus.Kustomization = &addonsv1alpha1.KustomizationStatus{
+			newStatus.Kustomization = &modulev1alpha1.KustomizationStatus{
 				LastAppliedRevision:   result.Kustomize.LastAppliedRevision,
 				LastAttemptedRevision: result.Kustomize.LastAppliedRevision,
 			}
@@ -347,7 +347,7 @@ func (r *ModuleReconciler) updateStatus(
 			Type:               mod.ConditionTypeUpgradeAvailable,
 			Status:             metav1.ConditionTrue,
 			Reason:             "UpgradePending",
-			Message:            fmt.Sprintf("Template generation %d available (applied: %d)", mt.Generation, newStatus.AppliedTemplateGeneration),
+			Message:            fmt.Sprintf("Class generation %d available (applied: %d)", mc.Generation, newStatus.AppliedClassGeneration),
 			ObservedGeneration: m.Generation,
 		})
 	} else {
@@ -366,19 +366,19 @@ func (r *ModuleReconciler) updateStatus(
 		}
 		log.FromContext(ctx).Info("Module status updated")
 		r.Recorder.Eventf(m, nil, corev1.EventTypeNormal, "Reconciled", "Reconcile",
-			"Module resources reconciled for template %s", m.Spec.TemplateRef)
+			"Module resources reconciled for class %s", m.Spec.ModuleClassName)
 	}
 
 	return nil
 }
 
-// requeueInterval returns the RequeueAfter based on the template's interval.
-func (r *ModuleReconciler) requeueInterval(mt *addonsv1alpha1.ModuleTemplate) ctrl.Result {
+// requeueInterval returns the RequeueAfter based on the class's interval.
+func (r *ModuleReconciler) requeueInterval(mc *modulev1alpha1.ModuleClass) ctrl.Result {
 	switch {
-	case mt.Spec.HelmChart != nil:
-		return ctrl.Result{RequeueAfter: mt.Spec.HelmChart.Interval.Duration}
-	case mt.Spec.Kustomization != nil:
-		return ctrl.Result{RequeueAfter: mt.Spec.Kustomization.Interval.Duration}
+	case mc.Spec.HelmChart != nil:
+		return ctrl.Result{RequeueAfter: mc.Spec.HelmChart.Interval.Duration}
+	case mc.Spec.Kustomization != nil:
+		return ctrl.Result{RequeueAfter: mc.Spec.Kustomization.Interval.Duration}
 	default:
 		return ctrl.Result{}
 	}
@@ -387,31 +387,31 @@ func (r *ModuleReconciler) requeueInterval(mt *addonsv1alpha1.ModuleTemplate) ct
 // SetupWithManager registers the controller with the Manager and defines watches.
 func (r *ModuleReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&addonsv1alpha1.Module{},
+		For(&modulev1alpha1.Module{},
 			builder.WithPredicates(predicate.GenerationChangedPredicate{}),
 		).
 		Watches(
-			&addonsv1alpha1.ModuleTemplate{},
-			handler.EnqueueRequestsFromMapFunc(r.mapModuleTemplateToModules),
+			&modulev1alpha1.ModuleClass{},
+			handler.EnqueueRequestsFromMapFunc(r.mapModuleClassToModules),
 		).
 		Named("module").
 		Complete(r)
 }
 
-// mapModuleTemplateToModules enqueues all Modules that reference the changed ModuleTemplate.
-func (r *ModuleReconciler) mapModuleTemplateToModules(ctx context.Context, obj client.Object) []reconcile.Request {
-	logger := log.FromContext(ctx).WithName("template-watch")
-	templateName := obj.GetName()
+// mapModuleClassToModules enqueues all Modules that reference the changed ModuleClass.
+func (r *ModuleReconciler) mapModuleClassToModules(ctx context.Context, obj client.Object) []reconcile.Request {
+	logger := log.FromContext(ctx).WithName("class-watch")
+	className := obj.GetName()
 
-	var modules addonsv1alpha1.ModuleList
+	var modules modulev1alpha1.ModuleList
 	if err := r.List(ctx, &modules); err != nil {
-		logger.Error(err, "Failed to list Modules for ModuleTemplate change re-enqueue")
+		logger.Error(err, "Failed to list Modules for ModuleClass change re-enqueue")
 		return nil
 	}
 
 	var requests []reconcile.Request
 	for _, m := range modules.Items {
-		if m.Spec.TemplateRef == templateName {
+		if m.Spec.ModuleClassName == className {
 			requests = append(requests, reconcile.Request{
 				NamespacedName: types.NamespacedName{Name: m.Name},
 			})
@@ -419,8 +419,8 @@ func (r *ModuleReconciler) mapModuleTemplateToModules(ctx context.Context, obj c
 	}
 
 	if len(requests) > 0 {
-		logger.Info("ModuleTemplate changed, re-enqueuing referencing Modules",
-			"template", templateName, "count", len(requests))
+		logger.Info("ModuleClass changed, re-enqueuing referencing Modules",
+			"class", className, "count", len(requests))
 	}
 	return requests
 }

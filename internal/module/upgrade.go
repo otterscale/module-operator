@@ -17,57 +17,57 @@ limitations under the License.
 package module
 
 import (
-	addonsv1alpha1 "github.com/otterscale/api/addons/v1alpha1"
+	modulev1alpha1 "github.com/otterscale/api/module/v1alpha1"
 )
 
 // UpgradeDecision represents the outcome of evaluating whether a Module
-// should apply changes from its referenced ModuleTemplate.
+// should apply changes from its referenced ModuleClass.
 type UpgradeDecision int
 
 const (
-	// UpgradeNotNeeded indicates the template has not changed since the last apply.
+	// UpgradeNotNeeded indicates the class has not changed since the last apply.
 	UpgradeNotNeeded UpgradeDecision = iota
 
 	// UpgradeInitialInstall indicates this is the first reconciliation and
-	// the template should be applied without requiring explicit approval.
+	// the class should be applied without requiring explicit approval.
 	UpgradeInitialInstall
 
-	// UpgradeApproved indicates the template has changed and the user has
+	// UpgradeApproved indicates the class has changed and the user has
 	// approved the new generation (or approval is not configured).
 	UpgradeApproved
 
-	// UpgradePending indicates the template has changed but the user has
+	// UpgradePending indicates the class has changed but the user has
 	// not yet approved the new generation.
 	UpgradePending
 )
 
 // CheckUpgrade is a pure function that determines whether a Module should
-// apply template changes based on the current state. It has no side effects
+// apply class changes based on the current state. It has no side effects
 // and performs no I/O.
 //
 // Decision logic:
-//   - AppliedTemplateGeneration == 0 → first install, always apply
-//   - Template generation unchanged  → nothing to do
-//   - ApprovedTemplateGeneration nil  → auto-approve (backward compatible)
-//   - Approved >= template generation → approved by user
-//   - Otherwise                       → pending user approval
-func CheckUpgrade(m *addonsv1alpha1.Module, mt *addonsv1alpha1.ModuleTemplate) UpgradeDecision {
-	if m.Status.AppliedTemplateGeneration == 0 {
+//   - AppliedClassGeneration == 0    → first install, always apply
+//   - Class generation unchanged     → nothing to do
+//   - ApprovedClassGeneration nil    → auto-approve (backward compatible)
+//   - Approved >= class generation   → approved by user
+//   - Otherwise                      → pending user approval
+func CheckUpgrade(m *modulev1alpha1.Module, mc *modulev1alpha1.ModuleClass) UpgradeDecision {
+	if m.Status.AppliedClassGeneration == 0 {
 		return UpgradeInitialInstall
 	}
-	if mt.Generation <= m.Status.AppliedTemplateGeneration {
+	if mc.Generation <= m.Status.AppliedClassGeneration {
 		return UpgradeNotNeeded
 	}
-	if m.Spec.ApprovedTemplateGeneration == nil {
+	if m.Spec.ApprovedClassGeneration == nil {
 		return UpgradeApproved
 	}
-	if *m.Spec.ApprovedTemplateGeneration >= mt.Generation {
+	if *m.Spec.ApprovedClassGeneration >= mc.Generation {
 		return UpgradeApproved
 	}
 	return UpgradePending
 }
 
-// ShouldApply returns true when the decision permits applying template changes.
+// ShouldApply returns true when the decision permits applying class changes.
 func (d UpgradeDecision) ShouldApply() bool {
 	return d != UpgradePending
 }

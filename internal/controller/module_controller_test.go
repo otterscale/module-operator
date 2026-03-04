@@ -31,8 +31,8 @@ import (
 	ctrlutil "sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	mod "github.com/otterscale/addons-operator/internal/module"
-	addonsv1alpha1 "github.com/otterscale/api/addons/v1alpha1"
+	modulev1alpha1 "github.com/otterscale/api/module/v1alpha1"
+	mod "github.com/otterscale/module-operator/internal/module"
 )
 
 var _ = Describe("Module Controller", func() {
@@ -43,21 +43,21 @@ var _ = Describe("Module Controller", func() {
 	)
 
 	var (
-		reconciler     *ModuleReconciler
-		module         *addonsv1alpha1.Module
-		moduleTemplate *addonsv1alpha1.ModuleTemplate
-		moduleName     string
-		templateName   string
-		targetNS       string
+		reconciler  *ModuleReconciler
+		module      *modulev1alpha1.Module
+		moduleClass *modulev1alpha1.ModuleClass
+		moduleName  string
+		className   string
+		targetNS    string
 	)
 
-	makeHelmChartTemplate := func(name, namespace string) *addonsv1alpha1.ModuleTemplate {
-		return &addonsv1alpha1.ModuleTemplate{
+	makeHelmChartClass := func(name, namespace string) *modulev1alpha1.ModuleClass {
+		return &modulev1alpha1.ModuleClass{
 			ObjectMeta: metav1.ObjectMeta{Name: name},
-			Spec: addonsv1alpha1.ModuleTemplateSpec{
-				Description: "Test Helm module template",
+			Spec: modulev1alpha1.ModuleClassSpec{
+				Description: "Test Helm module class",
 				Namespace:   namespace,
-				HelmChart: &addonsv1alpha1.HelmChartTemplate{
+				HelmChart: &modulev1alpha1.HelmChartTemplate{
 					RepoURL:  "https://charts.example.com",
 					Chart:    "test-chart",
 					Version:  "1.0.0",
@@ -67,13 +67,13 @@ var _ = Describe("Module Controller", func() {
 		}
 	}
 
-	makeKustomizationTemplate := func(name, namespace string) *addonsv1alpha1.ModuleTemplate {
-		return &addonsv1alpha1.ModuleTemplate{
+	makeKustomizationClass := func(name, namespace string) *modulev1alpha1.ModuleClass {
+		return &modulev1alpha1.ModuleClass{
 			ObjectMeta: metav1.ObjectMeta{Name: name},
-			Spec: addonsv1alpha1.ModuleTemplateSpec{
-				Description: "Test Kustomization module template",
+			Spec: modulev1alpha1.ModuleClassSpec{
+				Description: "Test Kustomization module class",
 				Namespace:   namespace,
-				Kustomization: &addonsv1alpha1.KustomizationTemplate{
+				Kustomization: &modulev1alpha1.KustomizationTemplate{
 					URL:      "https://github.com/example/repo.git",
 					Path:     "./deploy",
 					Interval: metav1.Duration{Duration: 10 * time.Minute},
@@ -83,11 +83,11 @@ var _ = Describe("Module Controller", func() {
 		}
 	}
 
-	makeModule := func(name, templateRef string, mods ...func(*addonsv1alpha1.Module)) *addonsv1alpha1.Module {
-		m := &addonsv1alpha1.Module{
+	makeModule := func(name, classRef string, mods ...func(*modulev1alpha1.Module)) *modulev1alpha1.Module {
+		m := &modulev1alpha1.Module{
 			ObjectMeta: metav1.ObjectMeta{Name: name},
-			Spec: addonsv1alpha1.ModuleSpec{
-				TemplateRef: templateRef,
+			Spec: modulev1alpha1.ModuleSpec{
+				ModuleClassName: classRef,
 			},
 		}
 		for _, fn := range mods {
@@ -107,10 +107,10 @@ var _ = Describe("Module Controller", func() {
 
 	BeforeEach(func() {
 		moduleName = "mod-" + string(uuid.NewUUID())[:8]
-		templateName = "tmpl-" + string(uuid.NewUUID())[:8]
+		className = "cls-" + string(uuid.NewUUID())[:8]
 		targetNS = "ns-" + string(uuid.NewUUID())[:8]
 		module = nil
-		moduleTemplate = nil
+		moduleClass = nil
 		reconciler = &ModuleReconciler{
 			Client:     k8sClient,
 			Scheme:     k8sClient.Scheme(),
@@ -125,8 +125,8 @@ var _ = Describe("Module Controller", func() {
 	})
 
 	JustBeforeEach(func() {
-		if moduleTemplate != nil {
-			Expect(k8sClient.Create(ctx, moduleTemplate)).To(Succeed())
+		if moduleClass != nil {
+			Expect(k8sClient.Create(ctx, moduleClass)).To(Succeed())
 		}
 		if module != nil {
 			Expect(k8sClient.Create(ctx, module)).To(Succeed())
@@ -134,7 +134,7 @@ var _ = Describe("Module Controller", func() {
 	})
 
 	AfterEach(func() {
-		var m addonsv1alpha1.Module
+		var m modulev1alpha1.Module
 		if err := k8sClient.Get(ctx, types.NamespacedName{Name: moduleName}, &m); err == nil {
 			if ctrlutil.ContainsFinalizer(&m, mod.ModuleFinalizer) {
 				patch := client.MergeFrom(m.DeepCopy())
@@ -144,18 +144,18 @@ var _ = Describe("Module Controller", func() {
 			_ = k8sClient.Delete(ctx, &m)
 		}
 
-		if moduleTemplate != nil {
-			_ = k8sClient.Delete(ctx, moduleTemplate)
+		if moduleClass != nil {
+			_ = k8sClient.Delete(ctx, moduleClass)
 		}
 	})
 
-	Context("Template Not Found", func() {
+	Context("Class Not Found", func() {
 		BeforeEach(func() {
-			moduleTemplate = nil
-			module = makeModule(moduleName, "non-existent-template")
+			moduleClass = nil
+			module = makeModule(moduleName, "non-existent-class")
 		})
 
-		It("should set Ready=False with TemplateNotFound and not return error", func() {
+		It("should set Ready=False with ClassNotFound and not return error", func() {
 			nsName := types.NamespacedName{Name: moduleName}
 			_, err := reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: nsName})
 			Expect(err).NotTo(HaveOccurred())
@@ -164,20 +164,18 @@ var _ = Describe("Module Controller", func() {
 			readyCond := meta.FindStatusCondition(module.Status.Conditions, mod.ConditionTypeReady)
 			Expect(readyCond).NotTo(BeNil())
 			Expect(readyCond.Status).To(Equal(metav1.ConditionFalse))
-			Expect(readyCond.Reason).To(Equal("TemplateNotFound"))
+			Expect(readyCond.Reason).To(Equal("ClassNotFound"))
 		})
 	})
 
 	Context("Finalizer Management", func() {
 		BeforeEach(func() {
-			moduleTemplate = makeHelmChartTemplate(templateName, targetNS)
-			module = makeModule(moduleName, templateName)
+			moduleClass = makeHelmChartClass(className, targetNS)
+			module = makeModule(moduleName, className)
 		})
 
 		It("should add finalizer to the Module on first reconcile", func() {
 			nsName := types.NamespacedName{Name: moduleName}
-			// First reconcile adds finalizer. It will then fail on actual Helm
-			// install (no real chart server) but finalizer is added before that.
 			_, _ = reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: nsName})
 
 			fetchResource(module, moduleName, "")
@@ -185,10 +183,10 @@ var _ = Describe("Module Controller", func() {
 		})
 	})
 
-	Context("Reconcile with HelmChart template", func() {
+	Context("Reconcile with HelmChart class", func() {
 		BeforeEach(func() {
-			moduleTemplate = makeHelmChartTemplate(templateName, targetNS)
-			module = makeModule(moduleName, templateName)
+			moduleClass = makeHelmChartClass(className, targetNS)
+			module = makeModule(moduleName, className)
 		})
 
 		It("should return a transient error when chart fetch fails (no real repo)", func() {
@@ -204,10 +202,10 @@ var _ = Describe("Module Controller", func() {
 		})
 	})
 
-	Context("Reconcile with Kustomization template", func() {
+	Context("Reconcile with Kustomization class", func() {
 		BeforeEach(func() {
-			moduleTemplate = makeKustomizationTemplate(templateName, targetNS)
-			module = makeModule(moduleName, templateName)
+			moduleClass = makeKustomizationClass(className, targetNS)
+			module = makeModule(moduleName, className)
 		})
 
 		It("should return a transient error when git clone fails (no real repo)", func() {
@@ -223,10 +221,10 @@ var _ = Describe("Module Controller", func() {
 		})
 	})
 
-	Context("Template Generation Tracking with failed reconcile", func() {
+	Context("Class Generation Tracking with failed reconcile", func() {
 		BeforeEach(func() {
-			moduleTemplate = makeHelmChartTemplate(templateName, targetNS)
-			module = makeModule(moduleName, templateName)
+			moduleClass = makeHelmChartClass(className, targetNS)
+			module = makeModule(moduleName, className)
 		})
 
 		It("should track observed generation even when reconcile fails", func() {
@@ -248,21 +246,21 @@ var _ = Describe("Module Controller", func() {
 				ObjectMeta: metav1.ObjectMeta{Name: overrideNS},
 			})).To(Succeed())
 
-			moduleTemplate = makeHelmChartTemplate(templateName, targetNS)
-			module = makeModule(moduleName, templateName, func(m *addonsv1alpha1.Module) {
+			moduleClass = makeHelmChartClass(className, targetNS)
+			module = makeModule(moduleName, className, func(m *modulev1alpha1.Module) {
 				m.Spec.Namespace = &overrideNS
 			})
 		})
 
 		It("should resolve target namespace from Module override", func() {
-			Expect(mod.TargetNamespace(module, moduleTemplate)).To(Equal(overrideNS))
+			Expect(mod.TargetNamespace(module, moduleClass)).To(Equal(overrideNS))
 		})
 	})
 
 	Context("Upgrade Pending Logic", func() {
 		BeforeEach(func() {
-			moduleTemplate = makeHelmChartTemplate(templateName, targetNS)
-			module = makeModule(moduleName, templateName)
+			moduleClass = makeHelmChartClass(className, targetNS)
+			module = makeModule(moduleName, className)
 		})
 
 		It("should detect upgrade pending when approved generation is behind", func() {
@@ -272,25 +270,25 @@ var _ = Describe("Module Controller", func() {
 			fetchResource(module, moduleName, "")
 
 			By("Locking the Module to require approval at current generation")
-			fetchResource(moduleTemplate, templateName, "")
-			currentGen := moduleTemplate.Generation
+			fetchResource(moduleClass, className, "")
+			currentGen := moduleClass.Generation
 
 			patch := client.MergeFrom(module.DeepCopy())
-			module.Spec.ApprovedTemplateGeneration = ptrInt64(currentGen)
+			module.Spec.ApprovedClassGeneration = ptrInt64(currentGen)
 			Expect(k8sClient.Patch(ctx, module, patch)).To(Succeed())
 
-			By("Updating the ModuleTemplate to create a newer generation")
-			fetchResource(moduleTemplate, templateName, "")
-			moduleTemplate.Spec.Description = "Updated description"
-			Expect(k8sClient.Update(ctx, moduleTemplate)).To(Succeed())
+			By("Updating the ModuleClass to create a newer generation")
+			fetchResource(moduleClass, className, "")
+			moduleClass.Spec.Description = "Updated description"
+			Expect(k8sClient.Update(ctx, moduleClass)).To(Succeed())
 
-			fetchResource(moduleTemplate, templateName, "")
-			Expect(moduleTemplate.Generation).To(BeNumerically(">", currentGen))
+			fetchResource(moduleClass, className, "")
+			Expect(moduleClass.Generation).To(BeNumerically(">", currentGen))
 
 			By("Verifying CheckUpgrade reports UpgradePending")
 			fetchResource(module, moduleName, "")
-			module.Status.AppliedTemplateGeneration = currentGen
-			decision := mod.CheckUpgrade(module, moduleTemplate)
+			module.Status.AppliedClassGeneration = currentGen
+			decision := mod.CheckUpgrade(module, moduleClass)
 			Expect(decision).To(Equal(mod.UpgradePending))
 			Expect(decision.ShouldApply()).To(BeFalse())
 		})
@@ -298,8 +296,8 @@ var _ = Describe("Module Controller", func() {
 
 	Context("Deletion Cleanup", func() {
 		BeforeEach(func() {
-			moduleTemplate = makeHelmChartTemplate(templateName, targetNS)
-			module = makeModule(moduleName, templateName)
+			moduleClass = makeHelmChartClass(className, targetNS)
+			module = makeModule(moduleName, className)
 		})
 
 		It("should remove finalizer when Module is deleted (even without a deployed release)", func() {
@@ -312,7 +310,7 @@ var _ = Describe("Module Controller", func() {
 			Expect(k8sClient.Delete(ctx, module)).To(Succeed())
 
 			Eventually(func() bool {
-				var m addonsv1alpha1.Module
+				var m modulev1alpha1.Module
 				if err := k8sClient.Get(ctx, nsName, &m); err != nil {
 					return false
 				}
@@ -323,7 +321,7 @@ var _ = Describe("Module Controller", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			Eventually(func() bool {
-				var m addonsv1alpha1.Module
+				var m modulev1alpha1.Module
 				err := k8sClient.Get(ctx, nsName, &m)
 				return err != nil
 			}, timeout, interval).Should(BeTrue())
@@ -332,54 +330,54 @@ var _ = Describe("Module Controller", func() {
 
 	Context("Domain Helpers", func() {
 		It("should resolve target namespace correctly", func() {
-			mt := &addonsv1alpha1.ModuleTemplate{
-				Spec: addonsv1alpha1.ModuleTemplateSpec{Namespace: "template-ns"},
+			mc := &modulev1alpha1.ModuleClass{
+				Spec: modulev1alpha1.ModuleClassSpec{Namespace: "class-ns"},
 			}
 
-			m := &addonsv1alpha1.Module{}
-			Expect(mod.TargetNamespace(m, mt)).To(Equal("template-ns"))
+			m := &modulev1alpha1.Module{}
+			Expect(mod.TargetNamespace(m, mc)).To(Equal("class-ns"))
 
 			overrideNS := "module-ns"
 			m.Spec.Namespace = &overrideNS
-			Expect(mod.TargetNamespace(m, mt)).To(Equal("module-ns"))
+			Expect(mod.TargetNamespace(m, mc)).To(Equal("module-ns"))
 		})
 
 		It("should compute upgrade decisions correctly", func() {
-			mt := &addonsv1alpha1.ModuleTemplate{}
-			mt.Generation = 1
+			mc := &modulev1alpha1.ModuleClass{}
+			mc.Generation = 1
 
-			m := &addonsv1alpha1.Module{}
+			m := &modulev1alpha1.Module{}
 
 			By("Initial install")
-			Expect(mod.CheckUpgrade(m, mt)).To(Equal(mod.UpgradeInitialInstall))
+			Expect(mod.CheckUpgrade(m, mc)).To(Equal(mod.UpgradeInitialInstall))
 
 			By("Not needed when generation matches")
-			m.Status.AppliedTemplateGeneration = 1
-			Expect(mod.CheckUpgrade(m, mt)).To(Equal(mod.UpgradeNotNeeded))
+			m.Status.AppliedClassGeneration = 1
+			Expect(mod.CheckUpgrade(m, mc)).To(Equal(mod.UpgradeNotNeeded))
 
 			By("Auto-approve when no approval configured")
-			mt.Generation = 2
-			Expect(mod.CheckUpgrade(m, mt)).To(Equal(mod.UpgradeApproved))
+			mc.Generation = 2
+			Expect(mod.CheckUpgrade(m, mc)).To(Equal(mod.UpgradeApproved))
 
 			By("Pending when approval configured but not matching")
 			approvedGen := int64(1)
-			m.Spec.ApprovedTemplateGeneration = &approvedGen
-			Expect(mod.CheckUpgrade(m, mt)).To(Equal(mod.UpgradePending))
+			m.Spec.ApprovedClassGeneration = &approvedGen
+			Expect(mod.CheckUpgrade(m, mc)).To(Equal(mod.UpgradePending))
 
 			By("Approved when approval matches new generation")
 			approvedGen = 2
-			Expect(mod.CheckUpgrade(m, mt)).To(Equal(mod.UpgradeApproved))
+			Expect(mod.CheckUpgrade(m, mc)).To(Equal(mod.UpgradeApproved))
 		})
 	})
 
-	Context("MapModuleTemplateToModules", func() {
+	Context("MapModuleClassToModules", func() {
 		BeforeEach(func() {
-			moduleTemplate = makeHelmChartTemplate(templateName, targetNS)
-			module = makeModule(moduleName, templateName)
+			moduleClass = makeHelmChartClass(className, targetNS)
+			module = makeModule(moduleName, className)
 		})
 
-		It("should map template changes to referencing modules", func() {
-			requests := reconciler.mapModuleTemplateToModules(ctx, moduleTemplate)
+		It("should map class changes to referencing modules", func() {
+			requests := reconciler.mapModuleClassToModules(ctx, moduleClass)
 			var found bool
 			for _, r := range requests {
 				if r.Name == moduleName {
