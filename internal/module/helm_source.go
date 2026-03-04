@@ -51,33 +51,48 @@ func (e *ChartFetchError) Unwrap() error { return e.Err }
 
 // loadChart downloads and loads a Helm chart based on the class's
 // repository configuration. It supports both traditional Helm repositories
-// and OCI registries.
-func loadChart(ctx context.Context, c client.Client, ht *modulev1alpha1.HelmChartTemplate, namespace string) (*chart.Chart, error) {
+// and OCI registries. The returned cleanup function removes the temporary
+// directory and must be called when the chart is no longer needed.
+func loadChart(ctx context.Context, c client.Client, ht *modulev1alpha1.HelmChartTemplate, namespace string) (*chart.Chart, func(), error) {
+	tmpDir, err := os.MkdirTemp("", "helm-chart-*")
+	if err != nil {
+		return nil, nil, &ChartFetchError{Chart: ht.Chart, RepoURL: ht.RepoURL, Err: fmt.Errorf("creating temp dir: %w", err)}
+	}
+	cleanup := func() { _ = os.RemoveAll(tmpDir) }
+
 	settings := cli.New()
-	settings.RepositoryCache = os.TempDir()
+	settings.RepositoryCache = tmpDir
 
 	var username, password string
 	if ht.SecretRef != nil {
-		u, p, err := readRepoCredentials(ctx, c, ht.SecretRef.Name, namespace)
-		if err != nil {
-			return nil, &ChartFetchError{Chart: ht.Chart, RepoURL: ht.RepoURL, Err: err}
+		u, p, credErr := readRepoCredentials(ctx, c, ht.SecretRef.Name, namespace)
+		if credErr != nil {
+			cleanup()
+			return nil, nil, &ChartFetchError{Chart: ht.Chart, RepoURL: ht.RepoURL, Err: credErr}
 		}
 		username, password = u, p
 	}
 
+	var ch *chart.Chart
 	if strings.HasPrefix(ht.RepoURL, "oci://") {
-		return loadOCIChart(settings, ht, username, password)
+		ch, err = loadOCIChart(settings, ht, username, password, tmpDir)
+	} else {
+		ch, err = loadRepoChart(settings, ht, username, password, tmpDir)
 	}
-	return loadRepoChart(settings, ht, username, password)
+	if err != nil {
+		cleanup()
+		return nil, nil, err
+	}
+	return ch, cleanup, nil
 }
 
-func loadRepoChart(settings *cli.EnvSettings, ht *modulev1alpha1.HelmChartTemplate, username, password string) (*chart.Chart, error) {
+func loadRepoChart(settings *cli.EnvSettings, ht *modulev1alpha1.HelmChartTemplate, username, password, tmpDir string) (*chart.Chart, error) {
 	pull := action.NewPullWithOpts(action.WithConfig(new(action.Configuration)))
 	pull.RepoURL = ht.RepoURL
 	pull.Settings = settings
-	pull.DestDir = os.TempDir()
+	pull.DestDir = tmpDir
 	pull.Untar = true
-	pull.UntarDir = os.TempDir()
+	pull.UntarDir = tmpDir
 	if ht.Version != "" {
 		pull.Version = ht.Version
 	}
@@ -91,7 +106,7 @@ func loadRepoChart(settings *cli.EnvSettings, ht *modulev1alpha1.HelmChartTempla
 		return nil, &ChartFetchError{Chart: ht.Chart, RepoURL: ht.RepoURL, Err: fmt.Errorf("%s: %w", output, err)}
 	}
 
-	chartPath := fmt.Sprintf("%s/%s", os.TempDir(), ht.Chart)
+	chartPath := fmt.Sprintf("%s/%s", tmpDir, ht.Chart)
 	ch, err := loader.Load(chartPath)
 	if err != nil {
 		return nil, &ChartFetchError{Chart: ht.Chart, RepoURL: ht.RepoURL, Err: err}
@@ -99,7 +114,7 @@ func loadRepoChart(settings *cli.EnvSettings, ht *modulev1alpha1.HelmChartTempla
 	return ch, nil
 }
 
-func loadOCIChart(settings *cli.EnvSettings, ht *modulev1alpha1.HelmChartTemplate, username, password string) (*chart.Chart, error) {
+func loadOCIChart(settings *cli.EnvSettings, ht *modulev1alpha1.HelmChartTemplate, username, password, tmpDir string) (*chart.Chart, error) {
 	var registryOpts []registry.ClientOption
 	registryClient, err := registry.NewClient(registryOpts...)
 	if err != nil {
@@ -119,9 +134,9 @@ func loadOCIChart(settings *cli.EnvSettings, ht *modulev1alpha1.HelmChartTemplat
 
 	pull := action.NewPullWithOpts(action.WithConfig(cfg))
 	pull.Settings = settings
-	pull.DestDir = os.TempDir()
+	pull.DestDir = tmpDir
 	pull.Untar = true
-	pull.UntarDir = os.TempDir()
+	pull.UntarDir = tmpDir
 	if ht.Version != "" {
 		pull.Version = ht.Version
 	}
@@ -132,7 +147,7 @@ func loadOCIChart(settings *cli.EnvSettings, ht *modulev1alpha1.HelmChartTemplat
 		return nil, &ChartFetchError{Chart: ht.Chart, RepoURL: ht.RepoURL, Err: fmt.Errorf("%s: %w", output, err)}
 	}
 
-	chartPath := fmt.Sprintf("%s/%s", os.TempDir(), ht.Chart)
+	chartPath := fmt.Sprintf("%s/%s", tmpDir, ht.Chart)
 	ch, err := loader.Load(chartPath)
 	if err != nil {
 		return nil, &ChartFetchError{Chart: ht.Chart, RepoURL: ht.RepoURL, Err: err}

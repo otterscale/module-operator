@@ -60,7 +60,7 @@ type ModuleReconciler struct {
 	Recorder   events.EventRecorder
 }
 
-// RBAC Permissions required by the controller:
+// RBAC: Operator's own CRD resources
 // +kubebuilder:rbac:groups=module.otterscale.io,resources=modules,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=module.otterscale.io,resources=modules/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=module.otterscale.io,resources=modules/finalizers,verbs=update
@@ -68,7 +68,23 @@ type ModuleReconciler struct {
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;create
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 // +kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;patch
-// +kubebuilder:rbac:groups="*",resources="*",verbs=get;list;watch;create;update;patch;delete
+//
+// RBAC: Helm release storage (Helm stores releases as Secrets)
+// +kubebuilder:rbac:groups="",resources=secrets,verbs=create;update;patch;delete
+//
+// RBAC: Common workload resources deployed by Helm charts and Kustomizations.
+// This covers the most frequent Kubernetes resources that ModuleClass blueprints deploy.
+// If a ModuleClass deploys resources outside this list, the cluster operator must grant
+// additional RBAC to the controller's ServiceAccount.
+// +kubebuilder:rbac:groups=apps,resources=deployments;statefulsets;daemonsets;replicasets,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=services;configmaps;serviceaccounts;persistentvolumeclaims;pods,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=batch,resources=jobs;cronjobs,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses;networkpolicies,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles;rolebindings;clusterroles;clusterrolebindings,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=policy,resources=poddisruptionbudgets,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=autoscaling,resources=horizontalpodautoscalers,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=admissionregistration.k8s.io,resources=validatingwebhookconfigurations;mutatingwebhookconfigurations,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is the main loop for the Module controller.
 // It implements the level-triggered reconciliation logic:
@@ -208,15 +224,20 @@ func (r *ModuleReconciler) reconcileDelete(ctx context.Context, m *modulev1alpha
 }
 
 // resolveCleanupNamespace determines the namespace of managed resources for cleanup.
+// It uses a fallback chain: Status.Namespace -> Spec.Namespace -> ModuleClass.Spec.Namespace.
+// If all sources fail, it logs a warning so operators can investigate orphaned resources.
 func (r *ModuleReconciler) resolveCleanupNamespace(ctx context.Context, m *modulev1alpha1.Module) string {
 	if m.Status.Namespace != "" {
 		return m.Status.Namespace
 	}
-	if m.Spec.Namespace != nil {
+	if m.Spec.Namespace != nil && *m.Spec.Namespace != "" {
 		return *m.Spec.Namespace
 	}
 	mc, err := r.fetchModuleClass(ctx, m.Spec.ModuleClassName)
 	if err != nil {
+		log.FromContext(ctx).Error(err,
+			"Could not resolve cleanup namespace; managed resources may be orphaned",
+			"module", m.Name, "class", m.Spec.ModuleClassName)
 		return ""
 	}
 	return mc.Spec.Namespace

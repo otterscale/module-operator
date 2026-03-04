@@ -17,7 +17,6 @@ limitations under the License.
 package module
 
 import (
-	"fmt"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -58,9 +57,17 @@ func diffInventory(old, current []modulev1alpha1.InventoryEntry) []modulev1alpha
 	return stale
 }
 
+const inventorySep = "//"
+
 // parseInventoryID splits an inventory ID back into its components.
+// It supports both the current "//" separator and the legacy "_" separator
+// for backward compatibility with existing inventory entries.
 func parseInventoryID(id string) (namespace, name, group, kind string) {
-	parts := strings.SplitN(id, "_", 4)
+	sep := inventorySep
+	if !strings.Contains(id, sep) {
+		sep = "_"
+	}
+	parts := strings.SplitN(id, sep, 4)
 	if len(parts) != 4 {
 		return "", id, "", ""
 	}
@@ -69,12 +76,11 @@ func parseInventoryID(id string) (namespace, name, group, kind string) {
 
 // inventoryGVK reconstructs a GVK from an inventory entry.
 func inventoryGVK(entry modulev1alpha1.InventoryEntry) schema.GroupVersionKind {
-	ns, _, group, kind := parseInventoryID(entry.ID)
-	_ = ns
+	_, _, group, kind := parseInventoryID(entry.ID)
 	gv, _ := schema.ParseGroupVersion(entry.Version)
 	return schema.GroupVersionKind{Group: group, Kind: kind, Version: gv.Version}
 }
 
 func inventoryID(namespace, name, group, kind string) string {
-	return fmt.Sprintf("%s_%s_%s_%s", namespace, name, group, kind)
+	return namespace + inventorySep + name + inventorySep + group + inventorySep + kind
 }

@@ -72,19 +72,32 @@ func cloneRepository(ctx context.Context, c client.Client, kt *modulev1alpha1.Ku
 		}
 	}()
 
+	needsFullHistory := kt.Ref != nil && (kt.Ref.Semver != "" || kt.Ref.Commit != "")
+
 	cloneOpts := &git.CloneOptions{
 		URL:      kt.URL,
 		Progress: nil,
-		Depth:    1,
+	}
+	if needsFullHistory {
+		cloneOpts.Tags = git.AllTags
+	} else {
+		cloneOpts.Depth = 1
 	}
 
+	var authCleanup func()
 	if kt.SecretRef != nil {
-		auth, authErr := readGitCredentials(ctx, c, kt.SecretRef.Name, namespace)
+		auth, cleanup, authErr := readGitCredentials(ctx, c, kt.SecretRef.Name, namespace)
 		if authErr != nil {
 			return nil, &SourceFetchError{URL: kt.URL, Err: authErr}
 		}
+		authCleanup = cleanup
 		cloneOpts.Auth = auth
 	}
+	defer func() {
+		if authCleanup != nil {
+			authCleanup()
+		}
+	}()
 
 	ref := resolveGitReference(kt.Ref)
 	if ref != "" {
@@ -188,47 +201,59 @@ func checkoutSemverTag(repo *git.Repository, constraint string) (string, error) 
 	return hash.String(), nil
 }
 
-func readGitCredentials(ctx context.Context, c client.Client, secretName, namespace string) (transport.AuthMethod, error) {
+// readGitCredentials returns the auth method and a cleanup function that
+// must be called after the auth is no longer needed (e.g. after clone).
+// The cleanup function is nil when no temporary files were created.
+func readGitCredentials(ctx context.Context, c client.Client, secretName, namespace string) (transport.AuthMethod, func(), error) {
 	var secret corev1.Secret
 	key := types.NamespacedName{Name: secretName, Namespace: namespace}
 	if err := c.Get(ctx, key, &secret); err != nil {
-		return nil, fmt.Errorf("reading git credentials secret %q: %w", secretName, err)
+		return nil, nil, fmt.Errorf("reading git credentials secret %q: %w", secretName, err)
 	}
 
 	if identity, ok := secret.Data["identity"]; ok {
 		signer, err := ssh.ParsePrivateKey(identity)
 		if err != nil {
-			return nil, fmt.Errorf("parsing SSH key from secret %q: %w", secretName, err)
+			return nil, nil, fmt.Errorf("parsing SSH key from secret %q: %w", secretName, err)
 		}
 		auth := &gitssh.PublicKeys{User: "git", Signer: signer}
-		if knownHosts, ok := secret.Data["known_hosts"]; ok {
-			tmpFile, tmpErr := os.CreateTemp("", "known-hosts-*")
-			if tmpErr != nil {
-				return nil, fmt.Errorf("creating temp known_hosts file: %w", tmpErr)
-			}
-			defer func() { _ = os.Remove(tmpFile.Name()) }()
-			if _, writeErr := tmpFile.Write(knownHosts); writeErr != nil {
-				_ = tmpFile.Close()
-				return nil, fmt.Errorf("writing known_hosts to temp file: %w", writeErr)
-			}
-			if err := tmpFile.Close(); err != nil {
-				return nil, fmt.Errorf("closing temp known_hosts file: %w", err)
-			}
-			cb, cbErr := gitssh.NewKnownHostsCallback(tmpFile.Name())
-			if cbErr != nil {
-				return nil, fmt.Errorf("parsing known_hosts from secret %q: %w", secretName, cbErr)
-			}
-			auth.HostKeyCallback = cb
+
+		knownHosts, hasKnownHosts := secret.Data["known_hosts"]
+		if !hasKnownHosts {
+			return nil, nil, fmt.Errorf("secret %q contains SSH identity but is missing required known_hosts field", secretName)
 		}
-		return auth, nil
+
+		tmpFile, tmpErr := os.CreateTemp("", "known-hosts-*")
+		if tmpErr != nil {
+			return nil, nil, fmt.Errorf("creating temp known_hosts file: %w", tmpErr)
+		}
+		tmpPath := tmpFile.Name()
+		cleanup := func() { _ = os.Remove(tmpPath) }
+
+		if _, writeErr := tmpFile.Write(knownHosts); writeErr != nil {
+			_ = tmpFile.Close()
+			cleanup()
+			return nil, nil, fmt.Errorf("writing known_hosts to temp file: %w", writeErr)
+		}
+		if err := tmpFile.Close(); err != nil {
+			cleanup()
+			return nil, nil, fmt.Errorf("closing temp known_hosts file: %w", err)
+		}
+		cb, cbErr := gitssh.NewKnownHostsCallback(tmpPath)
+		if cbErr != nil {
+			cleanup()
+			return nil, nil, fmt.Errorf("parsing known_hosts from secret %q: %w", secretName, cbErr)
+		}
+		auth.HostKeyCallback = cb
+		return auth, cleanup, nil
 	}
 
 	if username, ok := secret.Data["username"]; ok {
 		return &http.BasicAuth{
 			Username: string(username),
 			Password: string(secret.Data["password"]),
-		}, nil
+		}, nil, nil
 	}
 
-	return nil, fmt.Errorf("secret %q contains neither SSH identity nor username/password", secretName)
+	return nil, nil, fmt.Errorf("secret %q contains neither SSH identity nor username/password", secretName)
 }

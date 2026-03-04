@@ -39,6 +39,7 @@ import (
 	"sigs.k8s.io/kustomize/kyaml/resid"
 
 	modulev1alpha1 "github.com/otterscale/api/module/v1alpha1"
+	sigsyaml "sigs.k8s.io/yaml"
 )
 
 // KustomizeReconcileResult contains the outcome of a Kustomize
@@ -93,17 +94,17 @@ func ReconcileKustomization(
 		return nil, fmt.Errorf("kustomize build failed: %w", err)
 	}
 
-	if kt.TargetNamespace != "" {
-		for _, obj := range objects {
-			if obj.GetNamespace() != "" || isNamespaced(obj) {
-				obj.SetNamespace(kt.TargetNamespace)
-			}
-		}
-	}
-
 	mapper, err := buildRESTMapper(restCfg)
 	if err != nil {
 		return nil, fmt.Errorf("creating REST mapper: %w", err)
+	}
+
+	if kt.TargetNamespace != "" {
+		for _, obj := range objects {
+			if obj.GetNamespace() != "" || isNamespacedResource(mapper, obj) {
+				obj.SetNamespace(kt.TargetNamespace)
+			}
+		}
 	}
 
 	if err := serverSideApply(ctx, restCfg, mapper, objects, kt.Force); err != nil {
@@ -187,11 +188,16 @@ func applyPatches(kustomizePath string, patches []modulev1alpha1.KustomizePatch)
 	}
 
 	kustomizationFile := filepath.Join(kustomizePath, "kustomization.yaml")
-	if _, err := os.Stat(kustomizationFile); os.IsNotExist(err) {
-		return fmt.Errorf("kustomization.yaml not found at %s", kustomizePath)
+	data, err := os.ReadFile(kustomizationFile)
+	if err != nil {
+		return fmt.Errorf("reading kustomization.yaml at %s: %w", kustomizePath, err)
 	}
 
-	var kustPatches []kustypes.Patch
+	var kust kustypes.Kustomization
+	if err := sigsyaml.Unmarshal(data, &kust); err != nil {
+		return fmt.Errorf("parsing kustomization.yaml: %w", err)
+	}
+
 	for _, p := range patches {
 		kp := kustypes.Patch{Patch: p.Patch}
 		if p.Target != nil {
@@ -209,28 +215,29 @@ func applyPatches(kustomizePath string, patches []modulev1alpha1.KustomizePatch)
 				LabelSelector:      p.Target.LabelSelector,
 			}
 		}
-		kustPatches = append(kustPatches, kp)
+		kust.Patches = append(kust.Patches, kp)
 	}
-	_ = kustPatches
+
+	out, err := sigsyaml.Marshal(kust)
+	if err != nil {
+		return fmt.Errorf("serialising kustomization.yaml: %w", err)
+	}
+	if err := os.WriteFile(kustomizationFile, out, 0o644); err != nil {
+		return fmt.Errorf("writing kustomization.yaml: %w", err)
+	}
 
 	return nil
 }
 
-func isNamespaced(obj *unstructured.Unstructured) bool {
-	kind := obj.GetKind()
-	clusterScoped := map[string]bool{
-		"Namespace":                true,
-		"ClusterRole":              true,
-		"ClusterRoleBinding":       true,
-		"CustomResourceDefinition": true,
-		"PersistentVolume":         true,
-		"StorageClass":             true,
-		"IngressClass":             true,
-		"PriorityClass":            true,
-		"RuntimeClass":             true,
-		"VolumeAttachment":         true,
+// isNamespacedResource uses the API discovery REST mapper to determine
+// whether an unstructured object is namespace-scoped.
+func isNamespacedResource(mapper meta.RESTMapper, obj *unstructured.Unstructured) bool {
+	gvk := obj.GroupVersionKind()
+	mapping, err := mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+	if err != nil {
+		return obj.GetNamespace() != ""
 	}
-	return !clusterScoped[kind]
+	return mapping.Scope.Name() == meta.RESTScopeNameNamespace
 }
 
 func buildRESTMapper(restCfg *rest.Config) (meta.RESTMapper, error) {

@@ -80,10 +80,11 @@ func ReconcileHelmChart(
 		}
 	}
 
-	ch, err := loadChart(ctx, c, ht, targetNS)
+	ch, chartCleanup, err := loadChart(ctx, c, ht, targetNS)
 	if err != nil {
 		return nil, err
 	}
+	defer chartCleanup()
 
 	vals, err := mergeValues(ht, m)
 	if err != nil {
@@ -157,7 +158,10 @@ func ReconcileHelmChart(
 		logger.Info("Helm chart upgraded", "release", releaseName, "namespace", targetNS, "version", ch.Metadata.Version)
 	}
 
-	checksum := computeValuesChecksum(vals)
+	checksum, err := computeValuesChecksum(vals)
+	if err != nil {
+		return nil, fmt.Errorf("computing values checksum: %w", err)
+	}
 
 	return &HelmReconcileResult{
 		ChartVersion:   ch.Metadata.Version,
@@ -234,9 +238,12 @@ func mergeMaps(base, override map[string]any) map[string]any {
 	return result
 }
 
-func computeValuesChecksum(vals map[string]any) string {
-	data, _ := json.Marshal(vals)
-	return fmt.Sprintf("%x", sha256.Sum256(data))
+func computeValuesChecksum(vals map[string]any) (string, error) {
+	data, err := json.Marshal(vals)
+	if err != nil {
+		return "", fmt.Errorf("marshalling values for checksum: %w", err)
+	}
+	return fmt.Sprintf("%x", sha256.Sum256(data)), nil
 }
 
 // restConfigGetter adapts a *rest.Config to the genericclioptions.RESTClientGetter
