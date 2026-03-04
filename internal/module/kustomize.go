@@ -77,7 +77,7 @@ func ReconcileKustomization(
 	if err != nil {
 		return nil, err
 	}
-	defer os.RemoveAll(checkout.Dir)
+	defer func() { _ = os.RemoveAll(checkout.Dir) }()
 
 	kustomizePath := checkout.Dir
 	if kt.Path != "" {
