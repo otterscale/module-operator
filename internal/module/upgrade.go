@@ -67,8 +67,7 @@ func CheckUpgrade(m *addonsv1alpha1.Module, mt *addonsv1alpha1.ModuleTemplate) U
 	return UpgradePending
 }
 
-// ShouldApply returns true when the decision permits applying template changes
-// to the FluxCD resources.
+// ShouldApply returns true when the decision permits applying template changes.
 func (d UpgradeDecision) ShouldApply() bool {
 	return d != UpgradePending
 }

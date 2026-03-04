@@ -14,6 +14,26 @@ rules:
   - list
   - watch
 - apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - '*'
+  resources:
+  - '*'
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - addons.otterscale.io
   resources:
   - modules
@@ -54,27 +74,3 @@ rules:
   verbs:
   - create
   - patch
-- apiGroups:
-  - helm.toolkit.fluxcd.io
-  resources:
-  - helmreleases
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - kustomize.toolkit.fluxcd.io
-  resources:
-  - kustomizations
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch

@@ -33,11 +33,12 @@ import (
 
 const (
 	// ModuleFinalizer is set on a Module when it is first handled by the controller.
-	// It ensures that FluxCD resources are properly cleaned up before the Module is deleted.
+	// It ensures that managed Helm releases or Kustomize resources are properly
+	// cleaned up before the Module is deleted.
 	ModuleFinalizer = "addons.otterscale.io/module-cleanup"
 
-	// ConditionTypeReady indicates whether the module's FluxCD resources
-	// have been successfully reconciled and are healthy.
+	// ConditionTypeReady indicates whether the module's underlying resources
+	// (Helm release or Kustomize manifests) have been successfully reconciled.
 	ConditionTypeReady = "Ready"
 
 	// ConditionTypeUpgradeAvailable indicates that a newer ModuleTemplate
@@ -59,7 +60,7 @@ func (e *TemplateNotFoundError) Error() string {
 }
 
 // TemplateInvalidError is a permanent error indicating the referenced
-// ModuleTemplate has an invalid configuration (e.g. neither helmRelease nor kustomization is set).
+// ModuleTemplate has an invalid configuration (e.g. neither helmChart nor kustomization is set).
 type TemplateInvalidError struct {
 	Name    string
 	Message string

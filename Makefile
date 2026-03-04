@@ -52,19 +52,20 @@ manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and Cust
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	"$(CONTROLLER_GEN)" object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
-API_VERSION ?= $(call gomodver,github.com/otterscale/api)
-FLUX_HELM_VERSION ?= $(call gomodver,github.com/fluxcd/helm-controller/api)
-FLUX_KUSTOMIZE_VERSION ?= $(call gomodver,github.com/fluxcd/kustomize-controller/api)
+API_CRD_DIR ?= ../api/config/crd/bases
 
 .PHONY: download-crds
-download-crds: ## Download CRDs from the API module release.
+download-crds: ## Copy CRDs from the local api module (for development) or download from release.
 	@mkdir -p config/crd/bases
-	curl -sSL -o config/crd/bases/crds.yaml \
-		https://github.com/otterscale/api/releases/download/$(API_VERSION)/crds.yaml
-	curl -sSL -o config/crd/bases/flux-helm-controller.yaml \
-		https://github.com/fluxcd/helm-controller/releases/download/$(FLUX_HELM_VERSION)/helm-controller.crds.yaml
-	curl -sSL -o config/crd/bases/flux-kustomize-controller.yaml \
-		https://github.com/fluxcd/kustomize-controller/releases/download/$(FLUX_KUSTOMIZE_VERSION)/kustomize-controller.crds.yaml
+	@if [ -d "$(API_CRD_DIR)" ]; then \
+		echo "Using local api module CRDs from $(API_CRD_DIR)"; \
+		cp $(API_CRD_DIR)/addons.otterscale.io_*.yaml config/crd/bases/; \
+	else \
+		echo "Local api module not found, downloading from release"; \
+		API_VERSION=$$($(call gomodver,github.com/otterscale/api)); \
+		curl -sSL -o config/crd/bases/crds.yaml \
+			https://github.com/otterscale/api/releases/download/$$API_VERSION/crds.yaml; \
+	fi
 
 .PHONY: fmt
 fmt: ## Run go fmt against code.
