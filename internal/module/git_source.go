@@ -59,13 +59,18 @@ type gitCheckoutResult struct {
 
 // cloneRepository clones the Git repository described by the
 // KustomizationTemplate into a temporary directory.
-func cloneRepository(ctx context.Context, c client.Client, kt *modulev1alpha1.KustomizationTemplate, namespace string) (*gitCheckoutResult, error) {
+func cloneRepository(ctx context.Context, c client.Client, kt *modulev1alpha1.KustomizationTemplate, namespace string) (_ *gitCheckoutResult, err error) {
 	logger := log.FromContext(ctx)
 
 	dir, err := os.MkdirTemp("", "module-git-*")
 	if err != nil {
 		return nil, &SourceFetchError{URL: kt.URL, Err: fmt.Errorf("creating temp dir: %w", err)}
 	}
+	defer func() {
+		if err != nil {
+			_ = os.RemoveAll(dir)
+		}
+	}()
 
 	cloneOpts := &git.CloneOptions{
 		URL:      kt.URL,
@@ -74,9 +79,8 @@ func cloneRepository(ctx context.Context, c client.Client, kt *modulev1alpha1.Ku
 	}
 
 	if kt.SecretRef != nil {
-		auth, authErr := readGitCredentials(ctx, c, kt.SecretRef.Name, namespace, kt.URL)
+		auth, authErr := readGitCredentials(ctx, c, kt.SecretRef.Name, namespace)
 		if authErr != nil {
-			os.RemoveAll(dir)
 			return nil, &SourceFetchError{URL: kt.URL, Err: authErr}
 		}
 		cloneOpts.Auth = auth
@@ -90,14 +94,12 @@ func cloneRepository(ctx context.Context, c client.Client, kt *modulev1alpha1.Ku
 
 	repo, err := git.PlainCloneContext(ctx, dir, false, cloneOpts)
 	if err != nil {
-		os.RemoveAll(dir)
 		return nil, &SourceFetchError{URL: kt.URL, Err: err}
 	}
 
 	if kt.Ref != nil && kt.Ref.Semver != "" {
 		commitSHA, semErr := checkoutSemverTag(repo, kt.Ref.Semver)
 		if semErr != nil {
-			os.RemoveAll(dir)
 			return nil, &SourceFetchError{URL: kt.URL, Err: semErr}
 		}
 		logger.Info("Git repository cloned", "url", kt.URL, "commit", commitSHA)
@@ -107,11 +109,9 @@ func cloneRepository(ctx context.Context, c client.Client, kt *modulev1alpha1.Ku
 	if kt.Ref != nil && kt.Ref.Commit != "" {
 		wt, wtErr := repo.Worktree()
 		if wtErr != nil {
-			os.RemoveAll(dir)
 			return nil, &SourceFetchError{URL: kt.URL, Err: wtErr}
 		}
-		if err := wt.Checkout(&git.CheckoutOptions{Hash: plumbing.NewHash(kt.Ref.Commit)}); err != nil {
-			os.RemoveAll(dir)
+		if err = wt.Checkout(&git.CheckoutOptions{Hash: plumbing.NewHash(kt.Ref.Commit)}); err != nil {
 			return nil, &SourceFetchError{URL: kt.URL, Err: fmt.Errorf("checkout commit %s: %w", kt.Ref.Commit, err)}
 		}
 		logger.Info("Git repository cloned", "url", kt.URL, "commit", kt.Ref.Commit)
@@ -120,7 +120,6 @@ func cloneRepository(ctx context.Context, c client.Client, kt *modulev1alpha1.Ku
 
 	head, err := repo.Head()
 	if err != nil {
-		os.RemoveAll(dir)
 		return nil, &SourceFetchError{URL: kt.URL, Err: err}
 	}
 
@@ -189,7 +188,7 @@ func checkoutSemverTag(repo *git.Repository, constraint string) (string, error) 
 	return hash.String(), nil
 }
 
-func readGitCredentials(ctx context.Context, c client.Client, secretName, namespace, repoURL string) (transport.AuthMethod, error) {
+func readGitCredentials(ctx context.Context, c client.Client, secretName, namespace string) (transport.AuthMethod, error) {
 	var secret corev1.Secret
 	key := types.NamespacedName{Name: secretName, Namespace: namespace}
 	if err := c.Get(ctx, key, &secret); err != nil {
@@ -207,12 +206,14 @@ func readGitCredentials(ctx context.Context, c client.Client, secretName, namesp
 			if tmpErr != nil {
 				return nil, fmt.Errorf("creating temp known_hosts file: %w", tmpErr)
 			}
-			defer os.Remove(tmpFile.Name())
+			defer func() { _ = os.Remove(tmpFile.Name()) }()
 			if _, writeErr := tmpFile.Write(knownHosts); writeErr != nil {
-				tmpFile.Close()
+				_ = tmpFile.Close()
 				return nil, fmt.Errorf("writing known_hosts to temp file: %w", writeErr)
 			}
-			tmpFile.Close()
+			if err := tmpFile.Close(); err != nil {
+				return nil, fmt.Errorf("closing temp known_hosts file: %w", err)
+			}
 			cb, cbErr := gitssh.NewKnownHostsCallback(tmpFile.Name())
 			if cbErr != nil {
 				return nil, fmt.Errorf("parsing known_hosts from secret %q: %w", secretName, cbErr)
