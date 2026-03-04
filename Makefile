@@ -52,20 +52,13 @@ manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and Cust
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	"$(CONTROLLER_GEN)" object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
-API_CRD_DIR ?= ../api/config/crd/bases
+API_VERSION ?= $(call gomodver,github.com/otterscale/api)
 
 .PHONY: download-crds
-download-crds: ## Copy CRDs from the local api module (for development) or download from release.
+download-crds: ## Download CRDs from the API module release.
 	@mkdir -p config/crd/bases
-	@if [ -d "$(API_CRD_DIR)" ]; then \
-		echo "Using local api module CRDs from $(API_CRD_DIR)"; \
-		cp $(API_CRD_DIR)/addons.otterscale.io_*.yaml config/crd/bases/; \
-	else \
-		echo "Local api module not found, downloading from release"; \
-		API_VERSION=$$($(call gomodver,github.com/otterscale/api)); \
-		curl -sSL -o config/crd/bases/crds.yaml \
-			https://github.com/otterscale/api/releases/download/$$API_VERSION/crds.yaml; \
-	fi
+	curl -sSL -o config/crd/bases/crds.yaml \
+		https://github.com/otterscale/api/releases/download/$(API_VERSION)/crds.yaml
 
 .PHONY: fmt
 fmt: ## Run go fmt against code.
