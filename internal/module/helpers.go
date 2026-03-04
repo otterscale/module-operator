@@ -26,64 +26,65 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	addonsv1alpha1 "github.com/otterscale/api/addons/v1alpha1"
+	modulev1alpha1 "github.com/otterscale/api/module/v1alpha1"
 
-	"github.com/otterscale/addons-operator/internal/labels"
+	"github.com/otterscale/module-operator/internal/labels"
 )
 
 const (
 	// ModuleFinalizer is set on a Module when it is first handled by the controller.
-	// It ensures that FluxCD resources are properly cleaned up before the Module is deleted.
-	ModuleFinalizer = "addons.otterscale.io/module-cleanup"
+	// It ensures that managed Helm releases or Kustomize resources are properly
+	// cleaned up before the Module is deleted.
+	ModuleFinalizer = "module.otterscale.io/module-cleanup"
 
-	// ConditionTypeReady indicates whether the module's FluxCD resources
-	// have been successfully reconciled and are healthy.
+	// ConditionTypeReady indicates whether the module's underlying resources
+	// (Helm release or Kustomize manifests) have been successfully reconciled.
 	ConditionTypeReady = "Ready"
 
-	// ConditionTypeUpgradeAvailable indicates that a newer ModuleTemplate
+	// ConditionTypeUpgradeAvailable indicates that a newer ModuleClass
 	// generation exists but has not yet been approved for deployment.
 	ConditionTypeUpgradeAvailable = "UpgradeAvailable"
 
-	// LabelModuleTemplate identifies the ModuleTemplate that this resource was created from.
-	LabelModuleTemplate = "addons.otterscale.io/module-template"
+	// LabelModuleClass identifies the ModuleClass that this resource was created from.
+	LabelModuleClass = "module.otterscale.io/module-class"
 )
 
-// TemplateNotFoundError is a permanent error indicating the referenced
-// ModuleTemplate does not exist.
-type TemplateNotFoundError struct {
+// ClassNotFoundError is a permanent error indicating the referenced
+// ModuleClass does not exist.
+type ClassNotFoundError struct {
 	Name string
 }
 
-func (e *TemplateNotFoundError) Error() string {
-	return fmt.Sprintf("moduletemplate %q not found", e.Name)
+func (e *ClassNotFoundError) Error() string {
+	return fmt.Sprintf("moduleclass %q not found", e.Name)
 }
 
-// TemplateInvalidError is a permanent error indicating the referenced
-// ModuleTemplate has an invalid configuration (e.g. neither helmRelease nor kustomization is set).
-type TemplateInvalidError struct {
+// ClassInvalidError is a permanent error indicating the referenced
+// ModuleClass has an invalid configuration (e.g. neither helmChart nor kustomization is set).
+type ClassInvalidError struct {
 	Name    string
 	Message string
 }
 
-func (e *TemplateInvalidError) Error() string {
-	return fmt.Sprintf("moduletemplate %q is invalid: %s", e.Name, e.Message)
+func (e *ClassInvalidError) Error() string {
+	return fmt.Sprintf("moduleclass %q is invalid: %s", e.Name, e.Message)
 }
 
 // LabelsForModule returns a standard set of labels for resources managed by a Module.
-// It builds on the shared labels.Standard() base and adds the Module-specific template label.
-func LabelsForModule(moduleName, templateName, version string) map[string]string {
+// It builds on the shared labels.Standard() base and adds the Module-specific class label.
+func LabelsForModule(moduleName, className, version string) map[string]string {
 	l := labels.Standard(moduleName, "module", version)
-	l[LabelModuleTemplate] = templateName
+	l[LabelModuleClass] = className
 	return l
 }
 
 // TargetNamespace resolves the effective namespace for a Module,
-// preferring the Module's override, falling back to the ModuleTemplate default.
-func TargetNamespace(m *addonsv1alpha1.Module, mt *addonsv1alpha1.ModuleTemplate) string {
+// preferring the Module's override, falling back to the ModuleClass default.
+func TargetNamespace(m *modulev1alpha1.Module, mc *modulev1alpha1.ModuleClass) string {
 	if m.Spec.Namespace != nil {
 		return *m.Spec.Namespace
 	}
-	return mt.Spec.Namespace
+	return mc.Spec.Namespace
 }
 
 // EnsureNamespace creates the namespace if it does not already exist.

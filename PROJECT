@@ -8,15 +8,15 @@ layout:
 - go.kubebuilder.io/v4
 plugins:
   autoupdate.kubebuilder.io/v1-alpha: {}
-projectName: addons-operator
-repo: github.com/otterscale/addons-operator
+projectName: module-operator
+repo: github.com/otterscale/module-operator
 resources:
 - controller: true
   domain: otterscale.io
   external: true
-  group: addons
+  group: module
   kind: Module
   module: github.com/otterscale/api
-  path: github.com/otterscale/api/addons/v1alpha1
+  path: github.com/otterscale/api/module/v1alpha1
   version: v1alpha1
 version: "3"

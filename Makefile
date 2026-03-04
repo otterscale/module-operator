@@ -53,18 +53,12 @@ generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and
 	"$(CONTROLLER_GEN)" object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 API_VERSION ?= $(call gomodver,github.com/otterscale/api)
-FLUX_HELM_VERSION ?= $(call gomodver,github.com/fluxcd/helm-controller/api)
-FLUX_KUSTOMIZE_VERSION ?= $(call gomodver,github.com/fluxcd/kustomize-controller/api)
 
 .PHONY: download-crds
 download-crds: ## Download CRDs from the API module release.
 	@mkdir -p config/crd/bases
 	curl -sSL -o config/crd/bases/crds.yaml \
 		https://github.com/otterscale/api/releases/download/$(API_VERSION)/crds.yaml
-	curl -sSL -o config/crd/bases/flux-helm-controller.yaml \
-		https://github.com/fluxcd/helm-controller/releases/download/$(FLUX_HELM_VERSION)/helm-controller.crds.yaml
-	curl -sSL -o config/crd/bases/flux-kustomize-controller.yaml \
-		https://github.com/fluxcd/kustomize-controller/releases/download/$(FLUX_KUSTOMIZE_VERSION)/kustomize-controller.crds.yaml
 
 .PHONY: fmt
 fmt: ## Run go fmt against code.
@@ -82,7 +76,7 @@ test: manifests generate download-crds fmt vet setup-envtest ## Run tests.
 # The default setup assumes Kind is pre-installed and builds/loads the Manager Docker image locally.
 # CertManager is installed by default; skip with:
 # - CERT_MANAGER_INSTALL_SKIP=true
-KIND_CLUSTER ?= addons-operator-test-e2e
+KIND_CLUSTER ?= module-operator-test-e2e
 
 .PHONY: setup-test-e2e
 setup-test-e2e: ## Set up a Kind cluster for e2e tests if it does not exist
@@ -151,10 +145,10 @@ PLATFORMS ?= linux/arm64,linux/amd64,linux/s390x,linux/ppc64le
 docker-buildx: ## Build and push docker image for the manager for cross-platform support
 	# copy existing Dockerfile and insert --platform=${BUILDPLATFORM} into Dockerfile.cross, and preserve the original Dockerfile
 	sed -e '1 s/\(^FROM\)/FROM --platform=\$$\{BUILDPLATFORM\}/; t' -e ' 1,// s//FROM --platform=\$$\{BUILDPLATFORM\}/' Dockerfile > Dockerfile.cross
-	- $(CONTAINER_TOOL) buildx create --name addons-operator-builder
-	$(CONTAINER_TOOL) buildx use addons-operator-builder
+	- $(CONTAINER_TOOL) buildx create --name module-operator-builder
+	$(CONTAINER_TOOL) buildx use module-operator-builder
 	- $(CONTAINER_TOOL) buildx build --build-arg VERSION=$(VERSION) --push --platform=$(PLATFORMS) --tag ${IMG} -f Dockerfile.cross .
-	- $(CONTAINER_TOOL) buildx rm addons-operator-builder
+	- $(CONTAINER_TOOL) buildx rm module-operator-builder
 	rm Dockerfile.cross
 
 .PHONY: build-installer

@@ -40,11 +40,11 @@ const (
 	System = "otterscale-system"
 
 	// Operator is the ManagedBy value for this operator.
-	Operator = "addons-operator"
+	Operator = "module-operator"
 )
 
 // Standard returns the base set of Kubernetes recommended labels for all
-// operator-managed resources. Domain-specific labels (e.g. module-template)
+// operator-managed resources. Domain-specific labels (e.g. module-class)
 // should be added by the caller after invoking this function.
 //
 // If version is empty, the app.kubernetes.io/version label is omitted, as an

@@ -26,4 +26,4 @@ jobs:
         with:
           flags: go-tests
           token: ${{ secrets.CODECOV_TOKEN }}
-          slug: otterscale/addons-operator
+          slug: otterscale/module-operator

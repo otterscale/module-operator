@@ -7,6 +7,23 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - configmaps
+  - persistentvolumeclaims
+  - pods
+  - secrets
+  - serviceaccounts
+  - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
   - namespaces
   verbs:
   - create
@@ -14,7 +31,87 @@ rules:
   - list
   - watch
 - apiGroups:
-  - addons.otterscale.io
+  - admissionregistration.k8s.io
+  resources:
+  - mutatingwebhookconfigurations
+  - validatingwebhookconfigurations
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - daemonsets
+  - deployments
+  - replicasets
+  - statefulsets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - autoscaling
+  resources:
+  - horizontalpodautoscalers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - batch
+  resources:
+  - cronjobs
+  - jobs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - events.k8s.io
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+- apiGroups:
+  - module.otterscale.io
+  resources:
+  - moduleclasses
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - module.otterscale.io
   resources:
   - modules
   verbs:
@@ -26,13 +123,13 @@ rules:
   - update
   - watch
 - apiGroups:
-  - addons.otterscale.io
+  - module.otterscale.io
   resources:
   - modules/finalizers
   verbs:
   - update
 - apiGroups:
-  - addons.otterscale.io
+  - module.otterscale.io
   resources:
   - modules/status
   verbs:
@@ -40,24 +137,10 @@ rules:
   - patch
   - update
 - apiGroups:
-  - addons.otterscale.io
+  - networking.k8s.io
   resources:
-  - moduletemplates
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - events.k8s.io
-  resources:
-  - events
-  verbs:
-  - create
-  - patch
-- apiGroups:
-  - helm.toolkit.fluxcd.io
-  resources:
-  - helmreleases
+  - ingresses
+  - networkpolicies
   verbs:
   - create
   - delete
@@ -67,9 +150,24 @@ rules:
   - update
   - watch
 - apiGroups:
-  - kustomize.toolkit.fluxcd.io
+  - policy
   resources:
-  - kustomizations
+  - poddisruptionbudgets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterrolebindings
+  - clusterroles
+  - rolebindings
+  - roles
   verbs:
   - create
   - delete
