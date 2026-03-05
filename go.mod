@@ -3,8 +3,8 @@ module github.com/otterscale/module-operator
 go 1.26.0
 
 require (
-	github.com/fluxcd/helm-controller/api v1.5.0
-	github.com/fluxcd/kustomize-controller/api v1.8.0
+	github.com/fluxcd/helm-controller/api v1.5.1
+	github.com/fluxcd/kustomize-controller/api v1.8.1
 	github.com/onsi/ginkgo/v2 v2.28.1
 	github.com/onsi/gomega v1.39.1
 	github.com/otterscale/api v0.8.19
