@@ -80,7 +80,7 @@ var _ = Describe("CheckUpgrade", func() {
 			func(approved int64, templateGen int64) {
 				m := &modulev1alpha1.Module{
 					Spec: modulev1alpha1.ModuleSpec{
-						ApprovedTemplateGeneration: &approved,
+						ApprovedTemplateGeneration: new(approved),
 					},
 					Status: modulev1alpha1.ModuleStatus{
 						AppliedTemplateGeneration: 3,
@@ -102,7 +102,7 @@ var _ = Describe("CheckUpgrade", func() {
 			func(approved int64, applied int64, templateGen int64) {
 				m := &modulev1alpha1.Module{
 					Spec: modulev1alpha1.ModuleSpec{
-						ApprovedTemplateGeneration: &approved,
+						ApprovedTemplateGeneration: new(approved),
 					},
 					Status: modulev1alpha1.ModuleStatus{
 						AppliedTemplateGeneration: applied,
