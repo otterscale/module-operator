@@ -37,9 +37,9 @@ import (
 	ctrlutil "sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/otterscale/addons-operator/internal/labels"
-	mod "github.com/otterscale/addons-operator/internal/module"
-	addonsv1alpha1 "github.com/otterscale/api/addons/v1alpha1"
+	modulev1alpha1 "github.com/otterscale/api/module/v1alpha1"
+	"github.com/otterscale/module-operator/internal/labels"
+	mod "github.com/otterscale/module-operator/internal/module"
 )
 
 var _ = Describe("Module Controller", func() {
@@ -52,8 +52,8 @@ var _ = Describe("Module Controller", func() {
 	var (
 		ctx            context.Context
 		reconciler     *ModuleReconciler
-		module         *addonsv1alpha1.Module
-		moduleTemplate *addonsv1alpha1.ModuleTemplate
+		module         *modulev1alpha1.Module
+		moduleTemplate *modulev1alpha1.ModuleTemplate
 		moduleName     string
 		templateName   string
 		targetNS       string
@@ -67,10 +67,10 @@ var _ = Describe("Module Controller", func() {
 		return &runtime.RawExtension{Raw: raw}
 	}
 
-	makeHelmReleaseTemplate := func(name, namespace string) *addonsv1alpha1.ModuleTemplate {
-		return &addonsv1alpha1.ModuleTemplate{
+	makeHelmReleaseTemplate := func(name, namespace string) *modulev1alpha1.ModuleTemplate {
+		return &modulev1alpha1.ModuleTemplate{
 			ObjectMeta: metav1.ObjectMeta{Name: name},
-			Spec: addonsv1alpha1.ModuleTemplateSpec{
+			Spec: modulev1alpha1.ModuleTemplateSpec{
 				Description: "Test HelmRelease module template",
 				Namespace:   namespace,
 				HelmRelease: mustMarshalRaw(helmv2.HelmReleaseSpec{
@@ -89,10 +89,10 @@ var _ = Describe("Module Controller", func() {
 		}
 	}
 
-	makeKustomizationTemplate := func(name, namespace string) *addonsv1alpha1.ModuleTemplate {
-		return &addonsv1alpha1.ModuleTemplate{
+	makeKustomizationTemplate := func(name, namespace string) *modulev1alpha1.ModuleTemplate {
+		return &modulev1alpha1.ModuleTemplate{
 			ObjectMeta: metav1.ObjectMeta{Name: name},
-			Spec: addonsv1alpha1.ModuleTemplateSpec{
+			Spec: modulev1alpha1.ModuleTemplateSpec{
 				Description: "Test Kustomization module template",
 				Namespace:   namespace,
 				Kustomization: mustMarshalRaw(kustomizev1.KustomizationSpec{
@@ -108,10 +108,10 @@ var _ = Describe("Module Controller", func() {
 		}
 	}
 
-	makeModule := func(name, templateRef string, mods ...func(*addonsv1alpha1.Module)) *addonsv1alpha1.Module {
-		m := &addonsv1alpha1.Module{
+	makeModule := func(name, templateRef string, mods ...func(*modulev1alpha1.Module)) *modulev1alpha1.Module {
+		m := &modulev1alpha1.Module{
 			ObjectMeta: metav1.ObjectMeta{Name: name},
-			Spec: addonsv1alpha1.ModuleSpec{
+			Spec: modulev1alpha1.ModuleSpec{
 				TemplateRef: templateRef,
 			},
 		}
@@ -169,7 +169,7 @@ var _ = Describe("Module Controller", func() {
 
 	AfterEach(func() {
 		// Clean up Module (remove finalizer first if present)
-		var m addonsv1alpha1.Module
+		var m modulev1alpha1.Module
 		if err := k8sClient.Get(ctx, types.NamespacedName{Name: moduleName}, &m); err == nil {
 			if ctrlutil.ContainsFinalizer(&m, mod.ModuleFinalizer) {
 				patch := client.MergeFrom(m.DeepCopy())
@@ -215,7 +215,7 @@ var _ = Describe("Module Controller", func() {
 
 			By("Verifying labels on the HelmRelease")
 			Expect(hr.Labels).To(HaveKeyWithValue(labels.Name, moduleName))
-			Expect(hr.Labels).To(HaveKeyWithValue(labels.ManagedBy, "addons-operator"))
+			Expect(hr.Labels).To(HaveKeyWithValue(labels.ManagedBy, "module-operator"))
 			Expect(hr.Labels).To(HaveKeyWithValue(labels.Component, "module"))
 			Expect(hr.Labels).To(HaveKeyWithValue(labels.Version, version))
 			Expect(hr.Labels).To(HaveKeyWithValue(mod.LabelModuleTemplate, templateName))
@@ -276,7 +276,7 @@ var _ = Describe("Module Controller", func() {
 
 			By("Verifying labels on the Kustomization")
 			Expect(ks.Labels).To(HaveKeyWithValue(labels.Name, moduleName))
-			Expect(ks.Labels).To(HaveKeyWithValue(labels.ManagedBy, "addons-operator"))
+			Expect(ks.Labels).To(HaveKeyWithValue(labels.ManagedBy, "module-operator"))
 
 			By("Verifying Module status")
 			fetchResource(module, moduleName, "")
@@ -320,7 +320,7 @@ var _ = Describe("Module Controller", func() {
 			})).To(Succeed())
 
 			moduleTemplate = makeHelmReleaseTemplate(templateName, targetNS)
-			module = makeModule(moduleName, templateName, func(m *addonsv1alpha1.Module) {
+			module = makeModule(moduleName, templateName, func(m *modulev1alpha1.Module) {
 				m.Spec.Namespace = &overrideNS
 			})
 		})
@@ -355,7 +355,7 @@ var _ = Describe("Module Controller", func() {
 			valuesJSON, err := json.Marshal(overrideValues)
 			Expect(err).NotTo(HaveOccurred())
 
-			module = makeModule(moduleName, templateName, func(m *addonsv1alpha1.Module) {
+			module = makeModule(moduleName, templateName, func(m *modulev1alpha1.Module) {
 				m.Spec.Values = &runtime.RawExtension{Raw: valuesJSON}
 			})
 		})
@@ -397,7 +397,7 @@ var _ = Describe("Module Controller", func() {
 			nsName := types.NamespacedName{Name: moduleName}
 			// Refetch after delete to get DeletionTimestamp
 			Eventually(func() bool {
-				var m addonsv1alpha1.Module
+				var m modulev1alpha1.Module
 				if err := k8sClient.Get(ctx, nsName, &m); err != nil {
 					return false
 				}
@@ -414,7 +414,7 @@ var _ = Describe("Module Controller", func() {
 
 			By("Verifying the Module finalizer is removed and Module is gone")
 			Eventually(func() bool {
-				return errors.IsNotFound(k8sClient.Get(ctx, nsName, &addonsv1alpha1.Module{}))
+				return errors.IsNotFound(k8sClient.Get(ctx, nsName, &modulev1alpha1.Module{}))
 			}, timeout, interval).Should(BeTrue())
 		})
 	})
@@ -578,7 +578,7 @@ var _ = Describe("Module Controller", func() {
 		It("should generate correct labels", func() {
 			moduleLabels := mod.LabelsForModule("my-module", "my-template", "v1.0.0")
 			Expect(moduleLabels).To(HaveKeyWithValue(labels.Name, "my-module"))
-			Expect(moduleLabels).To(HaveKeyWithValue(labels.ManagedBy, "addons-operator"))
+			Expect(moduleLabels).To(HaveKeyWithValue(labels.ManagedBy, "module-operator"))
 			Expect(moduleLabels).To(HaveKeyWithValue(labels.PartOf, "otterscale-system"))
 			Expect(moduleLabels).To(HaveKeyWithValue(labels.Component, "module"))
 			Expect(moduleLabels).To(HaveKeyWithValue(labels.Version, "v1.0.0"))
@@ -586,12 +586,12 @@ var _ = Describe("Module Controller", func() {
 		})
 
 		It("should resolve target namespace correctly", func() {
-			mt := &addonsv1alpha1.ModuleTemplate{
-				Spec: addonsv1alpha1.ModuleTemplateSpec{Namespace: "template-ns"},
+			mt := &modulev1alpha1.ModuleTemplate{
+				Spec: modulev1alpha1.ModuleTemplateSpec{Namespace: "template-ns"},
 			}
 
 			By("Using template default when Module has no override")
-			m := &addonsv1alpha1.Module{}
+			m := &modulev1alpha1.Module{}
 			Expect(mod.TargetNamespace(m, mt)).To(Equal("template-ns"))
 
 			By("Using Module override when specified")

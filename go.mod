@@ -1,4 +1,4 @@
-module github.com/otterscale/addons-operator
+module github.com/otterscale/module-operator
 
 go 1.26.0
 
@@ -7,11 +7,11 @@ require (
 	github.com/fluxcd/kustomize-controller/api v1.8.0
 	github.com/onsi/ginkgo/v2 v2.28.1
 	github.com/onsi/gomega v1.39.1
-	github.com/otterscale/api v0.8.11
-	k8s.io/api v0.35.1
+	github.com/otterscale/api v0.8.19
+	k8s.io/api v0.35.2
 	k8s.io/apiextensions-apiserver v0.35.1
-	k8s.io/apimachinery v0.35.1
-	k8s.io/client-go v0.35.1
+	k8s.io/apimachinery v0.35.2
+	k8s.io/client-go v0.35.2
 	sigs.k8s.io/controller-runtime v0.23.1
 )
 

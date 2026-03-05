@@ -37,9 +37,9 @@ import (
 
 	helmv2 "github.com/fluxcd/helm-controller/api/v2"
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
-	addonsv1alpha1 "github.com/otterscale/api/addons/v1alpha1"
+	modulev1alpha1 "github.com/otterscale/api/module/v1alpha1"
 
-	"github.com/otterscale/addons-operator/internal/controller"
+	"github.com/otterscale/module-operator/internal/controller"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -54,7 +54,7 @@ func init() {
 	utilruntime.Must(helmv2.AddToScheme(scheme))
 	utilruntime.Must(kustomizev1.AddToScheme(scheme))
 
-	utilruntime.Must(addonsv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(modulev1alpha1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -168,7 +168,7 @@ func main() {
 		WebhookServer:          webhookServer,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "addons-operator-leader-election",
+		LeaderElectionID:       "module-operator-leader-election",
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
 		// when the Manager ends. This requires the binary to immediately end when the
 		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly

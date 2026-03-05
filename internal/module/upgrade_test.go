@@ -21,20 +21,20 @@ import (
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/otterscale/addons-operator/internal/module"
-	addonsv1alpha1 "github.com/otterscale/api/addons/v1alpha1"
+	modulev1alpha1 "github.com/otterscale/api/module/v1alpha1"
+	"github.com/otterscale/module-operator/internal/module"
 )
 
 var _ = Describe("CheckUpgrade", func() {
 
 	Describe("initial install detection", func() {
 		It("returns UpgradeInitialInstall when appliedTemplateGeneration is zero", func() {
-			m := &addonsv1alpha1.Module{
-				Status: addonsv1alpha1.ModuleStatus{
+			m := &modulev1alpha1.Module{
+				Status: modulev1alpha1.ModuleStatus{
 					AppliedTemplateGeneration: 0,
 				},
 			}
-			mt := &addonsv1alpha1.ModuleTemplate{
+			mt := &modulev1alpha1.ModuleTemplate{
 				ObjectMeta: metav1.ObjectMeta{Generation: 1},
 			}
 
@@ -44,12 +44,12 @@ var _ = Describe("CheckUpgrade", func() {
 
 	Describe("no-change detection", func() {
 		It("returns UpgradeNotNeeded when template generation equals applied", func() {
-			m := &addonsv1alpha1.Module{
-				Status: addonsv1alpha1.ModuleStatus{
+			m := &modulev1alpha1.Module{
+				Status: modulev1alpha1.ModuleStatus{
 					AppliedTemplateGeneration: 3,
 				},
 			}
-			mt := &addonsv1alpha1.ModuleTemplate{
+			mt := &modulev1alpha1.ModuleTemplate{
 				ObjectMeta: metav1.ObjectMeta{Generation: 3},
 			}
 
@@ -59,15 +59,15 @@ var _ = Describe("CheckUpgrade", func() {
 
 	Describe("auto-approve (backward compatible)", func() {
 		It("returns UpgradeApproved when approvedTemplateGeneration is nil", func() {
-			m := &addonsv1alpha1.Module{
-				Spec: addonsv1alpha1.ModuleSpec{
+			m := &modulev1alpha1.Module{
+				Spec: modulev1alpha1.ModuleSpec{
 					ApprovedTemplateGeneration: nil,
 				},
-				Status: addonsv1alpha1.ModuleStatus{
+				Status: modulev1alpha1.ModuleStatus{
 					AppliedTemplateGeneration: 1,
 				},
 			}
-			mt := &addonsv1alpha1.ModuleTemplate{
+			mt := &modulev1alpha1.ModuleTemplate{
 				ObjectMeta: metav1.ObjectMeta{Generation: 2},
 			}
 
@@ -78,15 +78,15 @@ var _ = Describe("CheckUpgrade", func() {
 	Describe("explicit approval", func() {
 		DescribeTable("returns UpgradeApproved when approved generation covers the template",
 			func(approved int64, templateGen int64) {
-				m := &addonsv1alpha1.Module{
-					Spec: addonsv1alpha1.ModuleSpec{
-						ApprovedTemplateGeneration: new(approved),
+				m := &modulev1alpha1.Module{
+					Spec: modulev1alpha1.ModuleSpec{
+						ApprovedTemplateGeneration: &approved,
 					},
-					Status: addonsv1alpha1.ModuleStatus{
+					Status: modulev1alpha1.ModuleStatus{
 						AppliedTemplateGeneration: 3,
 					},
 				}
-				mt := &addonsv1alpha1.ModuleTemplate{
+				mt := &modulev1alpha1.ModuleTemplate{
 					ObjectMeta: metav1.ObjectMeta{Generation: templateGen},
 				}
 
@@ -100,15 +100,15 @@ var _ = Describe("CheckUpgrade", func() {
 	Describe("pending approval", func() {
 		DescribeTable("returns UpgradePending when approved generation is insufficient",
 			func(approved int64, applied int64, templateGen int64) {
-				m := &addonsv1alpha1.Module{
-					Spec: addonsv1alpha1.ModuleSpec{
-						ApprovedTemplateGeneration: new(approved),
+				m := &modulev1alpha1.Module{
+					Spec: modulev1alpha1.ModuleSpec{
+						ApprovedTemplateGeneration: &approved,
 					},
-					Status: addonsv1alpha1.ModuleStatus{
+					Status: modulev1alpha1.ModuleStatus{
 						AppliedTemplateGeneration: applied,
 					},
 				}
-				mt := &addonsv1alpha1.ModuleTemplate{
+				mt := &modulev1alpha1.ModuleTemplate{
 					ObjectMeta: metav1.ObjectMeta{Generation: templateGen},
 				}
 

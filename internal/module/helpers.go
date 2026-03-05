@@ -26,15 +26,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	addonsv1alpha1 "github.com/otterscale/api/addons/v1alpha1"
+	modulev1alpha1 "github.com/otterscale/api/module/v1alpha1"
 
-	"github.com/otterscale/addons-operator/internal/labels"
+	"github.com/otterscale/module-operator/internal/labels"
 )
 
 const (
 	// ModuleFinalizer is set on a Module when it is first handled by the controller.
 	// It ensures that FluxCD resources are properly cleaned up before the Module is deleted.
-	ModuleFinalizer = "addons.otterscale.io/module-cleanup"
+	ModuleFinalizer = "module.otterscale.io/module-cleanup"
 
 	// ConditionTypeReady indicates whether the module's FluxCD resources
 	// have been successfully reconciled and are healthy.
@@ -45,7 +45,7 @@ const (
 	ConditionTypeUpgradeAvailable = "UpgradeAvailable"
 
 	// LabelModuleTemplate identifies the ModuleTemplate that this resource was created from.
-	LabelModuleTemplate = "addons.otterscale.io/module-template"
+	LabelModuleTemplate = "module.otterscale.io/module-template"
 )
 
 // TemplateNotFoundError is a permanent error indicating the referenced
@@ -79,7 +79,7 @@ func LabelsForModule(moduleName, templateName, version string) map[string]string
 
 // TargetNamespace resolves the effective namespace for a Module,
 // preferring the Module's override, falling back to the ModuleTemplate default.
-func TargetNamespace(m *addonsv1alpha1.Module, mt *addonsv1alpha1.ModuleTemplate) string {
+func TargetNamespace(m *modulev1alpha1.Module, mt *modulev1alpha1.ModuleTemplate) string {
 	if m.Spec.Namespace != nil {
 		return *m.Spec.Namespace
 	}

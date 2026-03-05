@@ -29,7 +29,7 @@ import (
 	ctrlutil "sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	addonsv1alpha1 "github.com/otterscale/api/addons/v1alpha1"
+	modulev1alpha1 "github.com/otterscale/api/module/v1alpha1"
 )
 
 // ReconcileKustomization ensures the FluxCD Kustomization exists and matches the
@@ -41,8 +41,8 @@ func ReconcileKustomization(
 	ctx context.Context,
 	c client.Client,
 	scheme *runtime.Scheme,
-	m *addonsv1alpha1.Module,
-	mt *addonsv1alpha1.ModuleTemplate,
+	m *modulev1alpha1.Module,
+	mt *modulev1alpha1.ModuleTemplate,
 	version string,
 ) error {
 	if mt.Spec.Kustomization == nil {
@@ -98,7 +98,7 @@ func ReconcileKustomization(
 
 // DeleteKustomization deletes the FluxCD Kustomization associated with the Module.
 // It returns nil if the resource is already gone.
-func DeleteKustomization(ctx context.Context, c client.Client, m *addonsv1alpha1.Module, namespace string) error {
+func DeleteKustomization(ctx context.Context, c client.Client, m *modulev1alpha1.Module, namespace string) error {
 	ks := &kustomizev1.Kustomization{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      m.Name,

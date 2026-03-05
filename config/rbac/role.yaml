@@ -14,40 +14,6 @@ rules:
   - list
   - watch
 - apiGroups:
-  - addons.otterscale.io
-  resources:
-  - modules
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - addons.otterscale.io
-  resources:
-  - modules/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - addons.otterscale.io
-  resources:
-  - modules/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - addons.otterscale.io
-  resources:
-  - moduletemplates
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
   - events.k8s.io
   resources:
   - events
@@ -77,4 +43,38 @@ rules:
   - list
   - patch
   - update
+  - watch
+- apiGroups:
+  - module.otterscale.io
+  resources:
+  - modules
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - module.otterscale.io
+  resources:
+  - modules/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - module.otterscale.io
+  resources:
+  - modules/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - module.otterscale.io
+  resources:
+  - moduletemplates
+  verbs:
+  - get
+  - list
   - watch
