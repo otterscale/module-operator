@@ -87,9 +87,16 @@ func TargetNamespace(m *modulev1alpha1.Module, mt *modulev1alpha1.ModuleTemplate
 }
 
 // EnsureNamespace creates the namespace if it does not already exist.
+// Newly created namespaces are labeled for audit traceability.
 func EnsureNamespace(ctx context.Context, c client.Client, name string) error {
 	ns := &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{Name: name},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+			Labels: map[string]string{
+				labels.ManagedBy: labels.Operator,
+				labels.PartOf:    labels.System,
+			},
+		},
 	}
 	if err := c.Create(ctx, ns); err != nil {
 		if apierrors.IsAlreadyExists(err) {

@@ -148,12 +148,30 @@ func (r *ModuleReconciler) fetchModuleTemplate(ctx context.Context, name string)
 
 // reconcileResources dispatches to the appropriate domain sync function
 // based on the template type (HelmRelease or Kustomization).
+// If the template type was switched (e.g. from HelmRelease to Kustomization),
+// the stale FluxCD resource of the previous type is cleaned up.
 func (r *ModuleReconciler) reconcileResources(ctx context.Context, m *modulev1alpha1.Module, mt *modulev1alpha1.ModuleTemplate) error {
 	switch {
 	case mt.Spec.HelmRelease != nil:
-		return mod.ReconcileHelmRelease(ctx, r.Client, r.Scheme, m, mt, r.Version)
+		if err := mod.ReconcileHelmRelease(ctx, r.Client, r.Scheme, m, mt, r.Version); err != nil {
+			return err
+		}
+		if ref := m.Status.KustomizationRef; ref != nil && ref.Namespace != "" {
+			if err := mod.DeleteKustomization(ctx, r.Client, m, ref.Namespace); err != nil {
+				return err
+			}
+		}
+		return nil
 	case mt.Spec.Kustomization != nil:
-		return mod.ReconcileKustomization(ctx, r.Client, r.Scheme, m, mt, r.Version)
+		if err := mod.ReconcileKustomization(ctx, r.Client, r.Scheme, m, mt, r.Version); err != nil {
+			return err
+		}
+		if ref := m.Status.HelmReleaseRef; ref != nil && ref.Namespace != "" {
+			if err := mod.DeleteHelmRelease(ctx, r.Client, m, ref.Namespace); err != nil {
+				return err
+			}
+		}
+		return nil
 	default:
 		return &mod.TemplateInvalidError{
 			Name:    mt.Name,
@@ -227,34 +245,40 @@ func (r *ModuleReconciler) resolveCleanupNamespace(ctx context.Context, m *modul
 }
 
 // handleReconcileError categorizes errors and updates status accordingly.
-// Permanent errors (TemplateNotFound, TemplateInvalid) do NOT requeue.
-// Transient errors are returned to controller-runtime for exponential backoff retry.
+// Permanent errors (TemplateNotFound, TemplateInvalid) do NOT requeue unless
+// the status patch itself fails. Transient errors are returned to
+// controller-runtime for exponential backoff retry.
 func (r *ModuleReconciler) handleReconcileError(ctx context.Context, m *modulev1alpha1.Module, err error) (ctrl.Result, error) {
 	var tnf *mod.TemplateNotFoundError
 	var tie *mod.TemplateInvalidError
 
 	switch {
 	case errors.As(err, &tnf):
-		r.setReadyConditionFalse(ctx, m, "TemplateNotFound", err.Error())
+		if patchErr := r.setReadyConditionFalse(ctx, m, "TemplateNotFound", err.Error()); patchErr != nil {
+			return ctrl.Result{}, patchErr
+		}
 		r.Recorder.Eventf(m, nil, corev1.EventTypeWarning, "TemplateNotFound", "Reconcile", err.Error())
 		return ctrl.Result{}, nil
 
 	case errors.As(err, &tie):
-		r.setReadyConditionFalse(ctx, m, "TemplateInvalid", err.Error())
+		if patchErr := r.setReadyConditionFalse(ctx, m, "TemplateInvalid", err.Error()); patchErr != nil {
+			return ctrl.Result{}, patchErr
+		}
 		r.Recorder.Eventf(m, nil, corev1.EventTypeWarning, "TemplateInvalid", "Reconcile", err.Error())
 		return ctrl.Result{}, nil
 
 	default:
-		r.setReadyConditionFalse(ctx, m, "ReconcileError", err.Error())
+		if patchErr := r.setReadyConditionFalse(ctx, m, "ReconcileError", err.Error()); patchErr != nil {
+			log.FromContext(ctx).Error(patchErr, "Failed to patch status while handling reconcile error")
+		}
 		r.Recorder.Eventf(m, nil, corev1.EventTypeWarning, "ReconcileError", "Reconcile", err.Error())
 		return ctrl.Result{}, err
 	}
 }
 
 // setReadyConditionFalse updates the Ready condition to False via status patch.
-func (r *ModuleReconciler) setReadyConditionFalse(ctx context.Context, m *modulev1alpha1.Module, reason, message string) {
-	logger := log.FromContext(ctx)
-
+// Returns error so callers can decide whether to requeue on patch failure.
+func (r *ModuleReconciler) setReadyConditionFalse(ctx context.Context, m *modulev1alpha1.Module, reason, message string) error {
 	patch := client.MergeFrom(m.DeepCopy())
 	meta.SetStatusCondition(&m.Status.Conditions, metav1.Condition{
 		Type:               mod.ConditionTypeReady,
@@ -265,9 +289,7 @@ func (r *ModuleReconciler) setReadyConditionFalse(ctx context.Context, m *module
 	})
 	m.Status.ObservedGeneration = m.Generation
 
-	if err := r.Status().Patch(ctx, m, patch); err != nil {
-		logger.Error(err, "Failed to patch Ready=False status condition", "reason", reason)
-	}
+	return r.Status().Patch(ctx, m, patch)
 }
 
 // updateStatus calculates the status based on the current observed state, the upgrade
@@ -448,6 +470,10 @@ func (r *ModuleReconciler) observeKustomizationStatus(ctx context.Context, name,
 	return readyCond.Status, "Kustomization" + readyCond.Reason, readyCond.Message
 }
 
+// indexFieldTemplateRef is the field index key for Module.spec.templateRef,
+// used for server-side filtering in mapModuleTemplateToModules.
+const indexFieldTemplateRef = ".spec.templateRef"
+
 // SetupWithManager registers the controller with the Manager and defines watches.
 //
 // Watch configuration:
@@ -456,6 +482,21 @@ func (r *ModuleReconciler) observeKustomizationStatus(ctx context.Context, name,
 //   - FluxCD HelmRelease/Kustomization: status changes trigger Module re-reconciliation
 //     via label-based mapping (the operator labels all managed FluxCD resources)
 func (r *ModuleReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if err := mgr.GetFieldIndexer().IndexField(
+		context.Background(),
+		&modulev1alpha1.Module{},
+		indexFieldTemplateRef,
+		func(obj client.Object) []string {
+			m, ok := obj.(*modulev1alpha1.Module)
+			if !ok {
+				return nil
+			}
+			return []string{m.Spec.TemplateRef}
+		},
+	); err != nil {
+		return err
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&modulev1alpha1.Module{},
 			builder.WithPredicates(predicate.GenerationChangedPredicate{}),
@@ -480,23 +521,22 @@ func (r *ModuleReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 // mapModuleTemplateToModules enqueues all Modules that reference the changed ModuleTemplate.
+// Uses the field index on .spec.templateRef for efficient server-side filtering.
 func (r *ModuleReconciler) mapModuleTemplateToModules(ctx context.Context, obj client.Object) []reconcile.Request {
 	logger := log.FromContext(ctx).WithName("template-watch")
 	templateName := obj.GetName()
 
 	var modules modulev1alpha1.ModuleList
-	if err := r.List(ctx, &modules); err != nil {
+	if err := r.List(ctx, &modules, client.MatchingFields{indexFieldTemplateRef: templateName}); err != nil {
 		logger.Error(err, "Failed to list Modules for ModuleTemplate change re-enqueue")
 		return nil
 	}
 
-	var requests []reconcile.Request
+	requests := make([]reconcile.Request, 0, len(modules.Items))
 	for _, m := range modules.Items {
-		if m.Spec.TemplateRef == templateName {
-			requests = append(requests, reconcile.Request{
-				NamespacedName: types.NamespacedName{Name: m.Name},
-			})
-		}
+		requests = append(requests, reconcile.Request{
+			NamespacedName: types.NamespacedName{Name: m.Name},
+		})
 	}
 
 	if len(requests) > 0 {
