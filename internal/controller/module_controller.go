@@ -43,9 +43,9 @@ import (
 
 	"k8s.io/client-go/tools/events"
 
-	"github.com/otterscale/addons-operator/internal/labels"
-	mod "github.com/otterscale/addons-operator/internal/module"
-	addonsv1alpha1 "github.com/otterscale/api/addons/v1alpha1"
+	modulev1alpha1 "github.com/otterscale/api/module/v1alpha1"
+	"github.com/otterscale/module-operator/internal/labels"
+	mod "github.com/otterscale/module-operator/internal/module"
 )
 
 // ModuleReconciler reconciles a Module object.
@@ -62,10 +62,10 @@ type ModuleReconciler struct {
 }
 
 // RBAC Permissions required by the controller:
-// +kubebuilder:rbac:groups=addons.otterscale.io,resources=modules,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=addons.otterscale.io,resources=modules/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=addons.otterscale.io,resources=modules/finalizers,verbs=update
-// +kubebuilder:rbac:groups=addons.otterscale.io,resources=moduletemplates,verbs=get;list;watch
+// +kubebuilder:rbac:groups=module.otterscale.io,resources=modules,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=module.otterscale.io,resources=modules/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=module.otterscale.io,resources=modules/finalizers,verbs=update
+// +kubebuilder:rbac:groups=module.otterscale.io,resources=moduletemplates,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;create
 // +kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;patch
 // +kubebuilder:rbac:groups=helm.toolkit.fluxcd.io,resources=helmreleases,verbs=get;list;watch;create;update;patch;delete
@@ -86,7 +86,7 @@ func (r *ModuleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	ctx = log.IntoContext(ctx, logger)
 
 	// 1. Fetch the Module instance
-	var m addonsv1alpha1.Module
+	var m modulev1alpha1.Module
 	if err := r.Get(ctx, req.NamespacedName, &m); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
@@ -135,8 +135,8 @@ func (r *ModuleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 // fetchModuleTemplate retrieves the ModuleTemplate referenced by the Module.
 // Returns a TemplateNotFoundError (permanent) if the template does not exist.
-func (r *ModuleReconciler) fetchModuleTemplate(ctx context.Context, name string) (*addonsv1alpha1.ModuleTemplate, error) {
-	var mt addonsv1alpha1.ModuleTemplate
+func (r *ModuleReconciler) fetchModuleTemplate(ctx context.Context, name string) (*modulev1alpha1.ModuleTemplate, error) {
+	var mt modulev1alpha1.ModuleTemplate
 	if err := r.Get(ctx, types.NamespacedName{Name: name}, &mt); err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil, &mod.TemplateNotFoundError{Name: name}
@@ -148,12 +148,30 @@ func (r *ModuleReconciler) fetchModuleTemplate(ctx context.Context, name string)
 
 // reconcileResources dispatches to the appropriate domain sync function
 // based on the template type (HelmRelease or Kustomization).
-func (r *ModuleReconciler) reconcileResources(ctx context.Context, m *addonsv1alpha1.Module, mt *addonsv1alpha1.ModuleTemplate) error {
+// If the template type was switched (e.g. from HelmRelease to Kustomization),
+// the stale FluxCD resource of the previous type is cleaned up.
+func (r *ModuleReconciler) reconcileResources(ctx context.Context, m *modulev1alpha1.Module, mt *modulev1alpha1.ModuleTemplate) error {
 	switch {
 	case mt.Spec.HelmRelease != nil:
-		return mod.ReconcileHelmRelease(ctx, r.Client, r.Scheme, m, mt, r.Version)
+		if err := mod.ReconcileHelmRelease(ctx, r.Client, r.Scheme, m, mt, r.Version); err != nil {
+			return err
+		}
+		if ref := m.Status.KustomizationRef; ref != nil && ref.Namespace != "" {
+			if err := mod.DeleteKustomization(ctx, r.Client, m, ref.Namespace); err != nil {
+				return err
+			}
+		}
+		return nil
 	case mt.Spec.Kustomization != nil:
-		return mod.ReconcileKustomization(ctx, r.Client, r.Scheme, m, mt, r.Version)
+		if err := mod.ReconcileKustomization(ctx, r.Client, r.Scheme, m, mt, r.Version); err != nil {
+			return err
+		}
+		if ref := m.Status.HelmReleaseRef; ref != nil && ref.Namespace != "" {
+			if err := mod.DeleteHelmRelease(ctx, r.Client, m, ref.Namespace); err != nil {
+				return err
+			}
+		}
+		return nil
 	default:
 		return &mod.TemplateInvalidError{
 			Name:    mt.Name,
@@ -165,7 +183,7 @@ func (r *ModuleReconciler) reconcileResources(ctx context.Context, m *addonsv1al
 // reconcileDelete handles the deletion flow:
 // 1. Delete the FluxCD resource
 // 2. Remove the Finalizer
-func (r *ModuleReconciler) reconcileDelete(ctx context.Context, m *addonsv1alpha1.Module) (ctrl.Result, error) {
+func (r *ModuleReconciler) reconcileDelete(ctx context.Context, m *modulev1alpha1.Module) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
 	if ctrlutil.ContainsFinalizer(m, mod.ModuleFinalizer) {
@@ -204,7 +222,7 @@ func (r *ModuleReconciler) reconcileDelete(ctx context.Context, m *addonsv1alpha
 
 // resolveCleanupNamespace determines the namespace of FluxCD resources for cleanup.
 // Priority: Status refs > Module spec override > ModuleTemplate default.
-func (r *ModuleReconciler) resolveCleanupNamespace(ctx context.Context, m *addonsv1alpha1.Module) string {
+func (r *ModuleReconciler) resolveCleanupNamespace(ctx context.Context, m *modulev1alpha1.Module) string {
 	// First, try to get it from status refs (most reliable, reflects actual state)
 	if m.Status.HelmReleaseRef != nil && m.Status.HelmReleaseRef.Namespace != "" {
 		return m.Status.HelmReleaseRef.Namespace
@@ -227,34 +245,40 @@ func (r *ModuleReconciler) resolveCleanupNamespace(ctx context.Context, m *addon
 }
 
 // handleReconcileError categorizes errors and updates status accordingly.
-// Permanent errors (TemplateNotFound, TemplateInvalid) do NOT requeue.
-// Transient errors are returned to controller-runtime for exponential backoff retry.
-func (r *ModuleReconciler) handleReconcileError(ctx context.Context, m *addonsv1alpha1.Module, err error) (ctrl.Result, error) {
+// Permanent errors (TemplateNotFound, TemplateInvalid) do NOT requeue unless
+// the status patch itself fails. Transient errors are returned to
+// controller-runtime for exponential backoff retry.
+func (r *ModuleReconciler) handleReconcileError(ctx context.Context, m *modulev1alpha1.Module, err error) (ctrl.Result, error) {
 	var tnf *mod.TemplateNotFoundError
 	var tie *mod.TemplateInvalidError
 
 	switch {
 	case errors.As(err, &tnf):
-		r.setReadyConditionFalse(ctx, m, "TemplateNotFound", err.Error())
+		if patchErr := r.setReadyConditionFalse(ctx, m, "TemplateNotFound", err.Error()); patchErr != nil {
+			return ctrl.Result{}, patchErr
+		}
 		r.Recorder.Eventf(m, nil, corev1.EventTypeWarning, "TemplateNotFound", "Reconcile", err.Error())
 		return ctrl.Result{}, nil
 
 	case errors.As(err, &tie):
-		r.setReadyConditionFalse(ctx, m, "TemplateInvalid", err.Error())
+		if patchErr := r.setReadyConditionFalse(ctx, m, "TemplateInvalid", err.Error()); patchErr != nil {
+			return ctrl.Result{}, patchErr
+		}
 		r.Recorder.Eventf(m, nil, corev1.EventTypeWarning, "TemplateInvalid", "Reconcile", err.Error())
 		return ctrl.Result{}, nil
 
 	default:
-		r.setReadyConditionFalse(ctx, m, "ReconcileError", err.Error())
+		if patchErr := r.setReadyConditionFalse(ctx, m, "ReconcileError", err.Error()); patchErr != nil {
+			log.FromContext(ctx).Error(patchErr, "Failed to patch status while handling reconcile error")
+		}
 		r.Recorder.Eventf(m, nil, corev1.EventTypeWarning, "ReconcileError", "Reconcile", err.Error())
 		return ctrl.Result{}, err
 	}
 }
 
 // setReadyConditionFalse updates the Ready condition to False via status patch.
-func (r *ModuleReconciler) setReadyConditionFalse(ctx context.Context, m *addonsv1alpha1.Module, reason, message string) {
-	logger := log.FromContext(ctx)
-
+// Returns error so callers can decide whether to requeue on patch failure.
+func (r *ModuleReconciler) setReadyConditionFalse(ctx context.Context, m *modulev1alpha1.Module, reason, message string) error {
 	patch := client.MergeFrom(m.DeepCopy())
 	meta.SetStatusCondition(&m.Status.Conditions, metav1.Condition{
 		Type:               mod.ConditionTypeReady,
@@ -265,15 +289,13 @@ func (r *ModuleReconciler) setReadyConditionFalse(ctx context.Context, m *addons
 	})
 	m.Status.ObservedGeneration = m.Generation
 
-	if err := r.Status().Patch(ctx, m, patch); err != nil {
-		logger.Error(err, "Failed to patch Ready=False status condition", "reason", reason)
-	}
+	return r.Status().Patch(ctx, m, patch)
 }
 
 // updateStatus calculates the status based on the current observed state, the upgrade
 // decision, and patches the resource. It always records the available template generation.
 // Resource refs and applied generation are only updated when the template was actually applied.
-func (r *ModuleReconciler) updateStatus(ctx context.Context, m *addonsv1alpha1.Module, mt *addonsv1alpha1.ModuleTemplate, decision mod.UpgradeDecision) error {
+func (r *ModuleReconciler) updateStatus(ctx context.Context, m *modulev1alpha1.Module, mt *modulev1alpha1.ModuleTemplate, decision mod.UpgradeDecision) error {
 	newStatus := m.Status.DeepCopy()
 	newStatus.ObservedGeneration = m.Generation
 	newStatus.AvailableTemplateGeneration = mt.Generation
@@ -300,9 +322,27 @@ func (r *ModuleReconciler) updateStatus(ctx context.Context, m *addonsv1alpha1.M
 
 	newStatus.Namespace = observeNS
 
-	// Observe the FluxCD resource status (uses the currently deployed namespace)
+	// Observe the FluxCD resource status (uses the currently deployed namespace).
+	// During UpgradePending the template may have changed resource type, so we
+	// determine which FluxCD resource to observe from the actual status refs
+	// rather than the (possibly stale) template.
 	if observeNS != "" {
-		readyStatus, readyReason, readyMessage := r.observeFluxResourceStatus(ctx, m, mt, observeNS)
+		var readyStatus metav1.ConditionStatus
+		var readyReason, readyMessage string
+
+		if decision == mod.UpgradePending {
+			switch {
+			case m.Status.HelmReleaseRef != nil:
+				readyStatus, readyReason, readyMessage = r.observeHelmReleaseStatus(ctx, m.Name, observeNS)
+			case m.Status.KustomizationRef != nil:
+				readyStatus, readyReason, readyMessage = r.observeKustomizationStatus(ctx, m.Name, observeNS)
+			default:
+				readyStatus, readyReason, readyMessage = metav1.ConditionUnknown, "ResourceTypeUnknown", "no deployed resource reference found"
+			}
+		} else {
+			readyStatus, readyReason, readyMessage = r.observeFluxResourceStatus(ctx, m, mt, observeNS)
+		}
+
 		meta.SetStatusCondition(&newStatus.Conditions, metav1.Condition{
 			Type:               mod.ConditionTypeReady,
 			Status:             readyStatus,
@@ -346,16 +386,16 @@ func (r *ModuleReconciler) updateStatus(ctx context.Context, m *addonsv1alpha1.M
 }
 
 // setResourceRefs updates the FluxCD resource references in the status based on template type.
-func (r *ModuleReconciler) setResourceRefs(status *addonsv1alpha1.ModuleStatus, name, namespace string, mt *addonsv1alpha1.ModuleTemplate) {
+func (r *ModuleReconciler) setResourceRefs(status *modulev1alpha1.ModuleStatus, name, namespace string, mt *modulev1alpha1.ModuleTemplate) {
 	switch {
 	case mt.Spec.HelmRelease != nil:
-		status.HelmReleaseRef = &addonsv1alpha1.ResourceReference{
+		status.HelmReleaseRef = &modulev1alpha1.ResourceReference{
 			Name:      name,
 			Namespace: namespace,
 		}
 		status.KustomizationRef = nil
 	case mt.Spec.Kustomization != nil:
-		status.KustomizationRef = &addonsv1alpha1.ResourceReference{
+		status.KustomizationRef = &modulev1alpha1.ResourceReference{
 			Name:      name,
 			Namespace: namespace,
 		}
@@ -366,7 +406,7 @@ func (r *ModuleReconciler) setResourceRefs(status *addonsv1alpha1.ModuleStatus, 
 // namespaceFromStatusRefs returns the namespace of the currently deployed FluxCD resource
 // from the Module's status refs. Used during UpgradePending to observe the existing resource
 // without relying on the (potentially changed) template.
-func (r *ModuleReconciler) namespaceFromStatusRefs(m *addonsv1alpha1.Module) string {
+func (r *ModuleReconciler) namespaceFromStatusRefs(m *modulev1alpha1.Module) string {
 	if m.Status.HelmReleaseRef != nil {
 		return m.Status.HelmReleaseRef.Namespace
 	}
@@ -380,8 +420,8 @@ func (r *ModuleReconciler) namespaceFromStatusRefs(m *addonsv1alpha1.Module) str
 // and translates it into the Module's status.
 func (r *ModuleReconciler) observeFluxResourceStatus(
 	ctx context.Context,
-	m *addonsv1alpha1.Module,
-	mt *addonsv1alpha1.ModuleTemplate,
+	m *modulev1alpha1.Module,
+	mt *modulev1alpha1.ModuleTemplate,
 	namespace string,
 ) (metav1.ConditionStatus, string, string) {
 	switch {
@@ -430,6 +470,10 @@ func (r *ModuleReconciler) observeKustomizationStatus(ctx context.Context, name,
 	return readyCond.Status, "Kustomization" + readyCond.Reason, readyCond.Message
 }
 
+// indexFieldTemplateRef is the field index key for Module.spec.templateRef,
+// used for server-side filtering in mapModuleTemplateToModules.
+const indexFieldTemplateRef = ".spec.templateRef"
+
 // SetupWithManager registers the controller with the Manager and defines watches.
 //
 // Watch configuration:
@@ -438,13 +482,28 @@ func (r *ModuleReconciler) observeKustomizationStatus(ctx context.Context, name,
 //   - FluxCD HelmRelease/Kustomization: status changes trigger Module re-reconciliation
 //     via label-based mapping (the operator labels all managed FluxCD resources)
 func (r *ModuleReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if err := mgr.GetFieldIndexer().IndexField(
+		context.Background(),
+		&modulev1alpha1.Module{},
+		indexFieldTemplateRef,
+		func(obj client.Object) []string {
+			m, ok := obj.(*modulev1alpha1.Module)
+			if !ok {
+				return nil
+			}
+			return []string{m.Spec.TemplateRef}
+		},
+	); err != nil {
+		return err
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&addonsv1alpha1.Module{},
+		For(&modulev1alpha1.Module{},
 			builder.WithPredicates(predicate.GenerationChangedPredicate{}),
 		).
 		// Watch ModuleTemplate changes → re-enqueue all Modules referencing the changed template
 		Watches(
-			&addonsv1alpha1.ModuleTemplate{},
+			&modulev1alpha1.ModuleTemplate{},
 			handler.EnqueueRequestsFromMapFunc(r.mapModuleTemplateToModules),
 		).
 		// Watch owned FluxCD HelmRelease for status changes
@@ -462,23 +521,22 @@ func (r *ModuleReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 // mapModuleTemplateToModules enqueues all Modules that reference the changed ModuleTemplate.
+// Uses the field index on .spec.templateRef for efficient server-side filtering.
 func (r *ModuleReconciler) mapModuleTemplateToModules(ctx context.Context, obj client.Object) []reconcile.Request {
 	logger := log.FromContext(ctx).WithName("template-watch")
 	templateName := obj.GetName()
 
-	var modules addonsv1alpha1.ModuleList
-	if err := r.List(ctx, &modules); err != nil {
+	var modules modulev1alpha1.ModuleList
+	if err := r.List(ctx, &modules, client.MatchingFields{indexFieldTemplateRef: templateName}); err != nil {
 		logger.Error(err, "Failed to list Modules for ModuleTemplate change re-enqueue")
 		return nil
 	}
 
-	var requests []reconcile.Request
+	requests := make([]reconcile.Request, 0, len(modules.Items))
 	for _, m := range modules.Items {
-		if m.Spec.TemplateRef == templateName {
-			requests = append(requests, reconcile.Request{
-				NamespacedName: types.NamespacedName{Name: m.Name},
-			})
-		}
+		requests = append(requests, reconcile.Request{
+			NamespacedName: types.NamespacedName{Name: m.Name},
+		})
 	}
 
 	if len(requests) > 0 {
@@ -497,7 +555,7 @@ func (r *ModuleReconciler) mapFluxResourceToModule(_ context.Context, obj client
 	}
 
 	// Only handle resources managed by us
-	if objLabels[labels.ManagedBy] != "addons-operator" || objLabels[labels.Component] != "module" {
+	if objLabels[labels.ManagedBy] != "module-operator" || objLabels[labels.Component] != "module" {
 		return nil
 	}
 

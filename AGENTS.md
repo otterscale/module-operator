@@ -1,4 +1,4 @@
-# addons-operator - AI Agent Guide
+# module-operator - AI Agent Guide
 
 ## Project Structure
 

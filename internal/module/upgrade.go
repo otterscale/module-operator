@@ -17,7 +17,7 @@ limitations under the License.
 package module
 
 import (
-	addonsv1alpha1 "github.com/otterscale/api/addons/v1alpha1"
+	modulev1alpha1 "github.com/otterscale/api/module/v1alpha1"
 )
 
 // UpgradeDecision represents the outcome of evaluating whether a Module
@@ -51,7 +51,7 @@ const (
 //   - ApprovedTemplateGeneration nil  → auto-approve (backward compatible)
 //   - Approved >= template generation → approved by user
 //   - Otherwise                       → pending user approval
-func CheckUpgrade(m *addonsv1alpha1.Module, mt *addonsv1alpha1.ModuleTemplate) UpgradeDecision {
+func CheckUpgrade(m *modulev1alpha1.Module, mt *modulev1alpha1.ModuleTemplate) UpgradeDecision {
 	if m.Status.AppliedTemplateGeneration == 0 {
 		return UpgradeInitialInstall
 	}
