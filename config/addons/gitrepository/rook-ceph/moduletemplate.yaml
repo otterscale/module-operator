@@ -15,6 +15,6 @@ spec:
     prune: true
     sourceRef:
       kind: GitRepository
-      name: otterscale-module-operator
+      name: otterscale-repository
       namespace: flux-system
     path: config/addons/gitrepository/rook-ceph/deploy
