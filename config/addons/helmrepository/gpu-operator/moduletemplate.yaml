@@ -50,7 +50,7 @@ spec:
         upgradePolicy:
           autoUpgrade: false
 
-      # 離線版本 (取消註解以啟用)
+      # Offline version
       # driver:
       #   version: "580"
       #   usePrecompiled: true
