@@ -9,4 +9,4 @@ spec:
   interval: 1h
   url: https://github.com/otterscale/module-operator
   ref:
-    branch: feat/add_addons_templates
+    tag: v0.9.0-beta.3
