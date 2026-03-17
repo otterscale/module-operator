@@ -1,6 +1,0 @@
-apiVersion: module.otterscale.io/v1alpha1
-kind: Module
-metadata:
-  name: rook-ceph-cluster
-spec:
-  templateRef: rook-ceph-cluster

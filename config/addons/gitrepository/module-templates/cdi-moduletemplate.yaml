@@ -1,0 +1,24 @@
+# ModuleTemplate — CDI (Containerized Data Importer) v1.64.0
+# Uses FluxCD Kustomization (not Helm). Deploys from remote release YAMLs.
+#
+# Prerequisite: GitRepository (otterscale-module-operator) must exist in flux-system.
+# Apply: kubectl apply -k config/addons/gitrepository/cdi/
+apiVersion: module.otterscale.io/v1alpha1
+kind: ModuleTemplate
+metadata:
+  name: cdi
+spec:
+  namespace: cdi
+
+  description: >-
+    Containerized Data Importer v1.64.0 — PVC data import for KubeVirt VM disk images.
+    Deploys via FluxCD Kustomization from upstream release YAMLs.
+
+  kustomization:
+    interval: 30m
+    prune: true
+    sourceRef:
+      kind: GitRepository
+      name: otterscale-module-operator
+      namespace: flux-system
+    path: config/addons/gitrepository/cdi/deploy

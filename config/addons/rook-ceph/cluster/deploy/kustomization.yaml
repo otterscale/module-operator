@@ -1,6 +1,0 @@
-# Rook-Ceph CephCluster CR — Phase 2 (apply after Operator is ready)
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-
-resources:
-  - https://raw.githubusercontent.com/rook/rook/v1.19.2/deploy/examples/cluster.yaml

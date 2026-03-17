@@ -1,49 +1,10 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-# Infrastructure Components — deploy all infrastructure components at once
+# Addons — Helm-based (charts) + Git-based (CDI, KubeVirt, etc.)
 #
-# Included:
-#   cdi/         — Containerized Data Importer v1.64.0  (VM disk image import for KubeVirt)
-#   kubevirt/    — KubeVirt v1.8.0-rc.0                 (VM on Kubernetes)
-#   gateway-api/ — Kubernetes Gateway API v1.5.0        (Standard channel CRDs)
-#   samba/       — Samba Operator v0.8                  (SMB/CIFS file sharing)
-#   rook-ceph/   — Rook-Ceph Operator v1.19.2           (distributed storage CRDs + Operator)
-#
-# WARNING: Important deployment notes:
-#
-#   One-shot (dev/test environment):
-#     kubectl apply -k config/addons/
-#     # If CDI or KubeVirt CR gets "CRD not found", simply re-run:
-#     kubectl apply -k config/addons/
-#
-#   Staged (production recommended):
-#
-#   Step 1 — Apply CRDs and Operators (this kustomization):
-#     kubectl apply -k config/addons/
-#
-#   Step 2 — Wait for all Operators to be ready:
-#     kubectl wait --for=condition=Established \
-#       crd/cdis.cdi.kubevirt.io \
-#       crd/kubevirts.kubevirt.io \
-#       --timeout=120s
-#     kubectl -n rook-ceph rollout status deploy/rook-ceph-operator
-#
-#   Step 3 — Create Rook CephCluster (edit cluster/kustomization.yaml for your environment first):
-#     kubectl apply -k config/addons/rook-ceph/cluster/
-#
-# Deploy individual components:
-#   kubectl apply -k config/addons/cdi/
-#   kubectl apply -k config/addons/kubevirt/
-#   kubectl apply -k config/addons/gateway-api/
-#   kubectl apply -k config/addons/samba/
-#   kubectl apply -k config/addons/rook-ceph/
-
-# Deploy order: GitRepository first, then ModuleTemplate-based components
+# One-shot: kubectl apply -k config/addons/
+# Individual: kubectl apply -k config/addons/helmrepository/ or config/addons/gitrepository/
 resources:
-  - gitrepository.yaml
-  - gateway-api/
-  - cdi/
-  - kubevirt/
-  - samba/
-  - rook-ceph/
+  - helmrepository/
+  - gitrepository/
