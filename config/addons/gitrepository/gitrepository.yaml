@@ -9,4 +9,4 @@ spec:
   interval: 1h
   url: https://github.com/otterscale/module-operator
   ref:
-    tag: v0.9.0-beta.3
+    tag: MODULE_OPERATOR_VERSION

@@ -161,7 +161,7 @@ docker-buildx: ## Build and push docker image for the manager for cross-platform
 build-installer: manifests generate kustomize ## Generate dist/install.yaml (CRDs+deploy+HelmRepository+ModuleTemplate+GitRepository+addon ModuleTemplates).
 	mkdir -p dist
 	cd config/manager && "$(KUSTOMIZE)" edit set image controller=${IMG}
-	{ "$(KUSTOMIZE)" build config/default; echo "---"; "$(KUSTOMIZE)" build config/addons/helmrepository; echo "---"; "$(KUSTOMIZE)" build config/addons/gitrepository; } > dist/install.yaml
+	{ "$(KUSTOMIZE)" build config/default; echo "---"; "$(KUSTOMIZE)" build config/addons/helmrepository; echo "---"; "$(KUSTOMIZE)" build config/addons/gitrepository; } | sed 's|MODULE_OPERATOR_VERSION|$(VERSION)|g' > dist/install.yaml
 
 ##@ Deployment
 
