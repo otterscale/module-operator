@@ -1,0 +1,77 @@
+# ModuleTemplate — NVIDIA GPU Operator blueprint
+#
+# Deploys NVIDIA GPU Operator for driver, DCGM, DCGM Exporter, Node Status Exporter.
+# Device plugin and vGPU are disabled (use HAMI for GPU sharing).
+#
+# Apply:
+#   kubectl apply -f moduletemplate.yaml
+apiVersion: module.otterscale.io/v1alpha1
+kind: ModuleTemplate
+metadata:
+  name: gpu-operator
+spec:
+  namespace: gpu-operator
+
+  description: >-
+    Deploys NVIDIA GPU Operator (driver 580.x, DCGM, DCGM Exporter, Node Status Exporter).
+    Device plugin disabled for use with HAMI vGPU.
+
+  helmRelease:
+    interval: 10m
+
+    chart:
+      spec:
+        chart: gpu-operator
+        version: "25.10.1"
+        sourceRef:
+          kind: HelmRepository
+          name: nvidia-gpu-operator
+          namespace: flux-system
+        interval: 24h
+
+    install:
+      remediation:
+        retries: 3
+
+    upgrade:
+      remediation:
+        retries: 3
+      force: false
+
+    timeout: 30m
+
+    values:
+      cdi:
+        enabled: false
+
+      driver:
+        enabled: true
+        version: "580.105.08"
+        upgradePolicy:
+          autoUpgrade: false
+
+      # 離線版本 (取消註解以啟用)
+      # driver:
+      #   version: "580"
+      #   usePrecompiled: true
+
+      devicePlugin:
+        enabled: false
+
+      operator:
+        cleanupCRD: true
+        upgradeCRD: false
+
+      dcgm:
+        enabled: true
+
+      dcgmExporter:
+        enabled: true
+        serviceMonitor:
+          enabled: true
+
+      nodeStatusExporter:
+        enabled: true
+
+      vgpuDeviceManager:
+        enabled: false

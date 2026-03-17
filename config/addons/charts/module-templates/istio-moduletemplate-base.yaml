@@ -1,0 +1,42 @@
+# ModuleTemplate — Istio base (CRDs)
+#
+# Installs Istio base chart (CRDs). Must be applied before istiod.
+# See: https://istio.io/latest/docs/setup/install/helm/
+#
+# Apply order: base → istiod → gateway
+apiVersion: module.otterscale.io/v1alpha1
+kind: ModuleTemplate
+metadata:
+  name: istio-base
+spec:
+  namespace: istio-system
+
+  description: >-
+    Installs Istio base chart (CRDs). Required before istiod.
+
+  helmRelease:
+    interval: 10m
+
+    chart:
+      spec:
+        chart: base
+        version: "1.29.1"
+        sourceRef:
+          kind: HelmRepository
+          name: istio
+          namespace: flux-system
+        interval: 24h
+
+    install:
+      remediation:
+        retries: 3
+
+    upgrade:
+      remediation:
+        retries: 3
+      force: false
+
+    timeout: 10m
+
+    values:
+      defaultRevision: default

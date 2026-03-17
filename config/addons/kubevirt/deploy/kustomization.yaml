@@ -1,0 +1,8 @@
+# KubeVirt deployment — remote resources for FluxCD Kustomization
+# Prerequisite: Deploy CDI first
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - https://github.com/kubevirt/kubevirt/releases/download/v1.8.0-rc.0/kubevirt-operator.yaml
+  - https://github.com/kubevirt/kubevirt/releases/download/v1.8.0-rc.0/kubevirt-cr.yaml

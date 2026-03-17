@@ -1,0 +1,24 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# 一次部署所有 OtterScale Module 元件（HelmRepository + ModuleTemplate + Module）。
+#
+# 部署順序由 Kustomize 依 resources 清單順序決定：
+#   1. gpu-operator/ — NVIDIA GPU Operator（driver + DCGM）
+#   2. hami/         — HAMI vGPU sharing（依賴 gpu-operator）
+#   3. prometheus/   — kube-prometheus-stack 監控套件
+#
+# 使用方式：
+#   # 預覽所有將套用的資源
+#   kubectl kustomize config/addons/charts/
+#
+#   # 直接套用到叢集
+#   kubectl apply -k config/addons/charts/
+#
+# 若只需部署單一元件，請進入子目錄執行：
+#   kubectl apply -k config/addons/charts/gpu-operator/
+
+resources:
+  - gpu-operator/
+  - hami/
+  - prometheus/

@@ -1,0 +1,45 @@
+# ModuleTemplate — Istio Ingress Gateway
+#
+# Installs Istio ingress gateway. Optional; deploy after istiod.
+# See: https://istio.io/latest/docs/setup/additional-setup/gateway/
+#
+# Apply order: base → istiod → gateway
+apiVersion: module.otterscale.io/v1alpha1
+kind: ModuleTemplate
+metadata:
+  name: istio-gateway
+spec:
+  namespace: istio-ingress
+
+  description: >-
+    Installs Istio ingress gateway for north-south traffic.
+
+  helmRelease:
+    interval: 10m
+
+    dependsOn:
+      - name: istiod
+        namespace: istio-system
+
+    chart:
+      spec:
+        chart: gateway
+        version: "1.29.1"
+        sourceRef:
+          kind: HelmRepository
+          name: istio
+          namespace: flux-system
+        interval: 24h
+
+    install:
+      remediation:
+        retries: 3
+
+    upgrade:
+      remediation:
+        retries: 3
+      force: false
+
+    timeout: 10m
+
+    values: {}

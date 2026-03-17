@@ -1,0 +1,20 @@
+# ModuleTemplate — Samba Operator v0.8
+# Uses FluxCD Kustomization. Deploys from remote release YAML.
+apiVersion: module.otterscale.io/v1alpha1
+kind: ModuleTemplate
+metadata:
+  name: samba
+spec:
+  namespace: samba-operator-system
+
+  description: >-
+    Samba Operator v0.8 — exposes PVCs over SMB/CIFS on Kubernetes.
+
+  kustomization:
+    interval: 30m
+    prune: true
+    sourceRef:
+      kind: GitRepository
+      name: otterscale-module-operator
+      namespace: flux-system
+    path: config/addons/samba/deploy

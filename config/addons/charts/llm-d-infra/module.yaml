@@ -1,0 +1,6 @@
+apiVersion: module.otterscale.io/v1alpha1
+kind: Module
+metadata:
+  name: llm-d-infra
+spec:
+  templateRef: llm-d-infra

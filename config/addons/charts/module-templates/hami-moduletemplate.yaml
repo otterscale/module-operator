@@ -1,0 +1,71 @@
+# ModuleTemplate — HAMI (Heterogeneous AI Computing Virtualization) blueprint
+#
+# Deploys HAMI for GPU sharing (vGPU) with NVIDIA GPU Operator.
+# Requires GPU Operator to be installed first (driver + nvidia-validations).
+#
+# Apply:
+#   kubectl apply -f moduletemplate.yaml
+apiVersion: module.otterscale.io/v1alpha1
+kind: ModuleTemplate
+metadata:
+  name: hami
+spec:
+  # HAMI scheduler and device plugin typically run in kube-system
+  namespace: kube-system
+
+  description: >-
+    Deploys HAMI for GPU sharing (vGPU) with device split, memory/core scaling.
+    Integrates with NVIDIA GPU Operator via gpuOperatorToolkitReady.
+
+  helmRelease:
+    interval: 10m
+
+    chart:
+      spec:
+        chart: hami
+        version: "2.8.0"
+        sourceRef:
+          kind: HelmRepository
+          name: hami
+          namespace: flux-system
+        interval: 24h
+
+    install:
+      remediation:
+        retries: 3
+
+    upgrade:
+      remediation:
+        retries: 3
+      force: false
+
+    timeout: 30m
+
+    values:
+      global:
+        imageTag: "v2.8.0"
+        annotations:
+          prometheus.io/scrape: "true"
+          prometheus.io/port: "31992"
+        # managedNodeSelectorEnable: false
+        # managedNodeSelector:
+        #   usage: "nvidia.com/gpu.workload.config"
+
+      scheduler:
+        service:
+          type: ClusterIP
+
+      devicePlugin:
+        enabled: true
+        gpuOperatorToolkitReady:
+          enabled: true
+          hostPath: "/run/nvidia/validations"
+        deviceSplitCount: 10
+        deviceMemoryScaling: 1
+        deviceCoreScaling: 1
+        service:
+          type: ClusterIP
+        runtimeClassName: "nvidia"
+        nvidiaNodeSelector:
+          gpu: null
+          nvidia.com/gpu.workload.config: "vgpu"
