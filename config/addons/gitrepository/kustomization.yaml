@@ -1,0 +1,14 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# GitRepository + ModuleTemplate only (no Module CRs).
+# Used by build-installer — install.yaml must not contain Module.
+#
+# Keep in sync with gitrepository.yaml and */moduletemplate.yaml
+resources:
+  - gitrepository.yaml
+  - gateway-api/moduletemplate.yaml
+  - cdi/moduletemplate.yaml
+  - kubevirt/moduletemplate.yaml
+  - samba/moduletemplate.yaml
+  - rook-ceph/moduletemplate.yaml
