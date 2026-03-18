@@ -17,7 +17,7 @@ kind: ModuleTemplate
 metadata:
   name: llm-d-infra
 spec:
-  namespace: llm-d-infra
+  namespace: llm-d
 
   description: >-
     Deploys llm-d infrastructure (Gateway API, service mesh integration)
@@ -29,8 +29,8 @@ spec:
     dependsOn:
       - name: gpu-operator
         namespace: gpu-operator
-      - name: istio-gateway
-        namespace: istio-ingress
+      - name: istiod
+        namespace: istio-system
 
     chart:
       spec:
