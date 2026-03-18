@@ -171,7 +171,8 @@ build-installer: manifests generate kustomize ## Generate dist/install.yaml (CRD
 		sed "s|__HAMI_VERSION__|$$(cat config/modules/hami/VERSION | tr -d '\n')|g" | \
 		sed "s|__ISTIO_VERSION__|$$(cat config/modules/istio/VERSION | tr -d '\n')|g" | \
 		sed "s|__PROMETHEUS_VERSION__|$$(cat config/modules/prometheus/VERSION | tr -d '\n')|g" | \
-		sed "s|__LLM_D_INFRA_VERSION__|$$(cat config/modules/llm-d-infra/VERSION | tr -d '\n')|g" \
+		sed "s|__LLM_D_INFRA_VERSION__|$$(cat config/modules/llm-d-infra/VERSION | tr -d '\n')|g" | \
+		sed "s|__GAIE_VERSION__|$$(cat config/modules/gateway-api-inference-extension/VERSION | tr -d '\n')|g" \
 		> dist/install.yaml
 
 ##@ Deployment

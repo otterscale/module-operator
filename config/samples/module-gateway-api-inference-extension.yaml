@@ -1,0 +1,7 @@
+apiVersion: module.otterscale.io/v1alpha1
+kind: Module
+metadata:
+  name: gateway-api-inference-extension
+spec:
+  templateRef:
+    name: gateway-api-inference-extension

@@ -1,0 +1,24 @@
+# ModuleTemplate — Gateway API Inference Extension v__GAIE_VERSION__
+# Uses FluxCD Kustomization. Requires Gateway API CRDs.
+apiVersion: module.otterscale.io/v1alpha1
+kind: ModuleTemplate
+metadata:
+  name: gateway-api-inference-extension
+spec:
+  namespace: gateway-api-inference-extension
+
+  description: >-
+    Gateway API Inference Extension v__GAIE_VERSION__ — CRDs and controllers
+    for AI/ML inference routing via Gateway API.
+
+  kustomization:
+    interval: 30m
+    prune: true
+    dependsOn:
+      - name: gateway-api
+        namespace: gateway-api-system
+    sourceRef:
+      kind: GitRepository
+      name: otterscale-module-operator
+      namespace: otterscale-system
+    path: config/modules/gateway-api-inference-extension
