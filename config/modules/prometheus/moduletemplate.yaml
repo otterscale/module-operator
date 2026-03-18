@@ -92,8 +92,6 @@ spec:
                 resources:
                   requests:
                     storage: "40Gi"
-        service:
-          type: NodePort
 
       # Deploy Node Exporter on every node for host-level metrics.
       nodeExporter:
