@@ -14,6 +14,9 @@ spec:
   kustomization:
     interval: 30m
     prune: true
+    dependsOn:
+      - name: cdi
+        namespace: cdi
     sourceRef:
       kind: GitRepository
       name: otterscale-repository
