@@ -3,7 +3,7 @@
 # Installs Istio base chart (CRDs). Must be applied before istiod.
 # See: https://istio.io/latest/docs/setup/install/helm/
 #
-# Apply order: base → istiod → gateway
+# Apply order: base → istiod
 apiVersion: module.otterscale.io/v1alpha1
 kind: ModuleTemplate
 metadata:

@@ -3,7 +3,7 @@
 # Installs Istiod control plane. Requires istio-base to be installed first.
 # See: https://istio.io/latest/docs/setup/install/helm/
 #
-# Apply order: base → istiod → gateway
+# Apply order: base → istiod
 apiVersion: module.otterscale.io/v1alpha1
 kind: ModuleTemplate
 metadata:

@@ -18,7 +18,6 @@ resources:
   - istio/helmrepository.yaml
   - istio/moduletemplate-base.yaml
   - istio/moduletemplate-istiod.yaml
-  - istio/moduletemplate-gateway.yaml
 
   - llm-d-infra/helmrepository.yaml
   - llm-d-infra/moduletemplate.yaml
