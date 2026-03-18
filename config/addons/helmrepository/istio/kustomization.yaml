@@ -9,6 +9,3 @@ resources:
   - moduletemplate-base.yaml
   - moduletemplate-istiod.yaml
   - moduletemplate-gateway.yaml
-  - module-base.yaml
-  - module-istiod.yaml
-  - module-gateway.yaml

@@ -7,4 +7,3 @@ kind: Kustomization
 resources:
   - helmrepository.yaml
   - moduletemplate.yaml
-  - module.yaml
