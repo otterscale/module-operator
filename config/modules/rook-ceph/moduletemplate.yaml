@@ -17,4 +17,4 @@ spec:
       kind: GitRepository
       name: otterscale-module-operator
       namespace: otterscale-system
-    path: config/modules/rook-ceph/deploy
+    path: config/modules/rook-ceph

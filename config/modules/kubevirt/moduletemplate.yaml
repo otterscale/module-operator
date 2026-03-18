@@ -21,4 +21,4 @@ spec:
       kind: GitRepository
       name: otterscale-module-operator
       namespace: otterscale-system
-    path: config/modules/kubevirt/deploy
+    path: config/modules/kubevirt
