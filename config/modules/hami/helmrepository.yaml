@@ -2,7 +2,7 @@ apiVersion: source.toolkit.fluxcd.io/v1
 kind: HelmRepository
 metadata:
   name: hami
-  namespace: flux-system
+  namespace: otterscale-system
 spec:
   interval: 24h
   url: https://project-hami.github.io/HAMi/

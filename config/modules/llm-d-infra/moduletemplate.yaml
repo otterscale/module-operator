@@ -41,7 +41,7 @@ spec:
         sourceRef:
           kind: HelmRepository
           name: llm-d-infra
-          namespace: flux-system
+          namespace: otterscale-system
         interval: 24h
 
     install:

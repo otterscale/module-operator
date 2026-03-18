@@ -45,7 +45,7 @@ spec:
         sourceRef:
           kind: HelmRepository
           name: prometheus-community
-          namespace: flux-system
+          namespace: otterscale-system
         # How often FluxCD polls the chart index for new versions.
         interval: 24h
 

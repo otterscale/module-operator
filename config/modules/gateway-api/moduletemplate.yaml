@@ -16,5 +16,5 @@ spec:
     sourceRef:
       kind: GitRepository
       name: otterscale-repository
-      namespace: flux-system
+      namespace: otterscale-system
     path: config/modules/gateway-api/deploy
