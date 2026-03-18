@@ -73,7 +73,7 @@ func ReconcileKustomization(
 		},
 	}
 
-	op, err := ctrlutil.CreateOrUpdate(ctx, c, ks, func() error {
+	op, err := ctrlutil.CreateOrPatch(ctx, c, ks, func() error {
 		ks.Spec = templateSpec
 
 		// Ensure labels are set for identification and filtering
