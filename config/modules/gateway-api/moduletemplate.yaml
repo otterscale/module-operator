@@ -15,6 +15,6 @@ spec:
     prune: true
     sourceRef:
       kind: GitRepository
-      name: otterscale-repository
+      name: otterscale-module-operator
       namespace: otterscale-system
     path: config/modules/gateway-api/deploy

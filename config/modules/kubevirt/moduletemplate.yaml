@@ -19,6 +19,6 @@ spec:
         namespace: cdi
     sourceRef:
       kind: GitRepository
-      name: otterscale-repository
+      name: otterscale-module-operator
       namespace: otterscale-system
     path: config/modules/kubevirt/deploy
