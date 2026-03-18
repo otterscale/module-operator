@@ -10,5 +10,4 @@ resources:
   - gateway-api/moduletemplate.yaml
   - cdi/moduletemplate.yaml
   - kubevirt/moduletemplate.yaml
-  - samba/moduletemplate.yaml
   - rook-ceph/moduletemplate.yaml
