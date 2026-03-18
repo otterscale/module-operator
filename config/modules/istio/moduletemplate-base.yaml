@@ -15,7 +15,7 @@ spec:
     Installs Istio base chart (CRDs). Required before istiod.
 
   helmRelease:
-    interval: 10m
+    interval: 30m
 
     chart:
       spec:

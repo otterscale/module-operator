@@ -6,7 +6,7 @@ metadata:
   name: otterscale-module-operator
   namespace: otterscale-system
 spec:
-  interval: 1h
+  interval: 24h
   url: https://github.com/otterscale/module-operator
   ref:
     tag: MODULE_OPERATOR_VERSION
