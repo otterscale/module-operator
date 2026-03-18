@@ -17,4 +17,4 @@ spec:
       kind: GitRepository
       name: otterscale-repository
       namespace: flux-system
-    path: config/addons/gitrepository/rook-ceph/deploy
+    path: config/modules/rook-ceph/deploy

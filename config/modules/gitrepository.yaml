@@ -1,5 +1,5 @@
 # Shared GitRepository for addon ModuleTemplates (CDI, KubeVirt, etc.)
-# All addon components deploy from this repo's config/addons/gitrepository/*/deploy paths.
+# All addon components deploy from this repo's config/modules/*/deploy paths.
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: GitRepository
 metadata:

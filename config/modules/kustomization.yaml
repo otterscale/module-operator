@@ -1,12 +1,14 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-# ModuleTemplate + HelmRepository only (no Module CRs).
-# Used by build-installer to generate dist/install.yaml
-#
-# Included: gpu-operator, hami, prometheus, istio, llm-d-infra
-# Order: HelmRepository first (sources), then ModuleTemplate
+# Sources + ModuleTemplates only (no Module CRs).
+# Used by build-installer to generate dist/install.yaml.
+# Module CRs are in config/samples/ for users to apply selectively.
 resources:
+  # --- GitRepository source ---
+  - gitrepository.yaml
+
+  # --- HelmRepository sources + ModuleTemplates ---
   - gpu-operator/helmrepository.yaml
   - gpu-operator/moduletemplate.yaml
   - hami/helmrepository.yaml
@@ -19,3 +21,9 @@ resources:
   - istio/moduletemplate-gateway.yaml
   - llm-d-infra/helmrepository.yaml
   - llm-d-infra/moduletemplate.yaml
+
+  # --- GitRepository ModuleTemplates ---
+  - gateway-api/moduletemplate.yaml
+  - cdi/moduletemplate.yaml
+  - kubevirt/moduletemplate.yaml
+  - rook-ceph/moduletemplate.yaml

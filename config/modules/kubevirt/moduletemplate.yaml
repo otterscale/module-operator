@@ -21,4 +21,4 @@ spec:
       kind: GitRepository
       name: otterscale-repository
       namespace: flux-system
-    path: config/addons/gitrepository/kubevirt/deploy
+    path: config/modules/kubevirt/deploy
