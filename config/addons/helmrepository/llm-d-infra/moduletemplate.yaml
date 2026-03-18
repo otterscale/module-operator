@@ -26,6 +26,14 @@ spec:
   helmRelease:
     interval: 10m
 
+    dependsOn:
+      - name: gpu-operator
+        namespace: gpu-operator
+      - name: istio-gateway
+        namespace: istio-ingress
+      - name: gateway-api
+        namespace: gateway-api-system
+
     chart:
       spec:
         chart: llm-d-infra
