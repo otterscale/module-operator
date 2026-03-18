@@ -16,7 +16,7 @@ spec:
   # Target namespace where the FluxCD HelmRelease object (and by default the
   # Helm release itself) will be created. Can be overridden per-Module via
   # Module.spec.namespace.
-  namespace: prometheus-stack
+  namespace: monitoring
 
   description: >-
     Deploys kube-prometheus-stack (Prometheus, Alertmanager, Node Exporter)
