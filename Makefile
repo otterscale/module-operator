@@ -162,7 +162,7 @@ build-installer: manifests generate kustomize ## Generate dist/install.yaml (CRD
 	mkdir -p dist
 	cd config/manager && "$(KUSTOMIZE)" edit set image controller=${IMG}
 	{ "$(KUSTOMIZE)" build config/default; echo "---"; "$(KUSTOMIZE)" build config/modules; } | \
-		sed 's|MODULE_OPERATOR_VERSION|$(VERSION)|g' | \
+		sed 's|__MODULE_OPERATOR_VERSION__|$(VERSION)|g' | \
 		sed "s|__CDI_VERSION__|$$(cat config/modules/cdi/VERSION | tr -d '\n')|g" | \
 		sed "s|__KUBEVIRT_VERSION__|$$(cat config/modules/kubevirt/VERSION | tr -d '\n')|g" | \
 		sed "s|__ROOK_CEPH_VERSION__|$$(cat config/modules/rook-ceph/VERSION | tr -d '\n')|g" | \

@@ -279,7 +279,7 @@ make build-installer IMG=<registry>/<project>:tag
 
 **GitRepository version substitution:**
 
-- `config/modules/gitrepository.yaml` uses the placeholder `MODULE_OPERATOR_VERSION` for the Git ref tag
+- `config/modules/gitrepository.yaml` uses the placeholder `__MODULE_OPERATOR_VERSION__` for the Git ref tag
 - The `build-installer` target replaces it with the current version (`git describe --tags --always`) via `sed` before writing `dist/install.yaml`
 - Modules (CDI, KubeVirt, etc.) are thus sourced from the same version as the operator being built, enabling feature-branch testing without hardcoded tags
 
