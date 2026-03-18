@@ -5,26 +5,30 @@ kind: Kustomization
 # Used by build-installer to generate dist/install.yaml.
 # Module CRs are in config/samples/ for users to apply selectively.
 resources:
-  # --- GitRepository source ---
+  # --- Sources ---
   - gitrepository.yaml
 
-  # --- HelmRepository sources + ModuleTemplates ---
+  # --- Helm-based ModuleTemplates ---
   - gpu-operator/helmrepository.yaml
   - gpu-operator/moduletemplate.yaml
+
   - hami/helmrepository.yaml
   - hami/moduletemplate.yaml
-  - prometheus/helmrepository.yaml
-  - prometheus/moduletemplate.yaml
+
   - istio/helmrepository.yaml
   - istio/moduletemplate-base.yaml
   - istio/moduletemplate-istiod.yaml
   - istio/moduletemplate-gateway.yaml
+
   - llm-d-infra/helmrepository.yaml
   - llm-d-infra/moduletemplate.yaml
 
-  # --- GitRepository ModuleTemplates ---
+  - prometheus/helmrepository.yaml
+  - prometheus/moduletemplate.yaml
+
+  # --- Kustomize-based ModuleTemplates ---
+  - cdi/moduletemplate.yaml
   - gateway-api/moduletemplate.yaml
   - gateway-api-inference-extension/moduletemplate.yaml
-  - cdi/moduletemplate.yaml
   - kubevirt/moduletemplate.yaml
   - rook-ceph/moduletemplate.yaml
