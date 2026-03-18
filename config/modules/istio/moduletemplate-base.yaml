@@ -20,7 +20,7 @@ spec:
     chart:
       spec:
         chart: base
-        version: "1.29.1"
+        version: "__ISTIO_VERSION__"
         sourceRef:
           kind: HelmRepository
           name: istio

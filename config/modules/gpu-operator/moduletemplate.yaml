@@ -22,7 +22,7 @@ spec:
     chart:
       spec:
         chart: gpu-operator
-        version: "25.10.1"
+        version: "__GPU_OPERATOR_VERSION__"
         sourceRef:
           kind: HelmRepository
           name: nvidia-gpu-operator

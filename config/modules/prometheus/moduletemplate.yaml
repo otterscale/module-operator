@@ -37,7 +37,7 @@ spec:
         chart: kube-prometheus-stack
         # Pin to a specific chart version for reproducibility.
         # Remove or set to "*" to always track the latest.
-        version: "82.10.5"
+        version: "__PROMETHEUS_VERSION__"
         sourceRef:
           kind: HelmRepository
           name: prometheus

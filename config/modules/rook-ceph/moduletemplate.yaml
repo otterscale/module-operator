@@ -1,4 +1,4 @@
-# ModuleTemplate — Rook-Ceph Operator v1.19.2 (Phase 1: Operator only)
+# ModuleTemplate — Rook-Ceph Operator v__ROOK_CEPH_VERSION__ (Phase 1: Operator only)
 # Uses FluxCD Kustomization. Phase 2: Apply rook-ceph-cluster Module for CephCluster.
 apiVersion: module.otterscale.io/v1alpha1
 kind: ModuleTemplate
@@ -8,7 +8,7 @@ spec:
   namespace: rook-ceph
 
   description: >-
-    Rook-Ceph Operator v1.19.2 — CRDs, Operator Deployment. Create CephCluster separately via rook-ceph-cluster Module.
+    Rook-Ceph Operator v__ROOK_CEPH_VERSION__ — CRDs, Operator Deployment. Create CephCluster separately via rook-ceph-cluster Module.
 
   kustomization:
     interval: 30m

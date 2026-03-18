@@ -27,7 +27,7 @@ spec:
     chart:
       spec:
         chart: hami
-        version: "2.8.0"
+        version: "__HAMI_VERSION__"
         sourceRef:
           kind: HelmRepository
           name: hami
@@ -47,7 +47,7 @@ spec:
 
     values:
       global:
-        imageTag: "v2.8.0"
+        imageTag: "v__HAMI_VERSION__"
         annotations:
           prometheus.io/scrape: "true"
           prometheus.io/port: "31992"

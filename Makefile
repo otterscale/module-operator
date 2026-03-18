@@ -161,7 +161,18 @@ docker-buildx: ## Build and push docker image for the manager for cross-platform
 build-installer: manifests generate kustomize ## Generate dist/install.yaml (CRDs+deploy+HelmRepository+ModuleTemplate+GitRepository+addon ModuleTemplates).
 	mkdir -p dist
 	cd config/manager && "$(KUSTOMIZE)" edit set image controller=${IMG}
-	{ "$(KUSTOMIZE)" build config/default; echo "---"; "$(KUSTOMIZE)" build config/modules; } | sed 's|MODULE_OPERATOR_VERSION|$(VERSION)|g' > dist/install.yaml
+	{ "$(KUSTOMIZE)" build config/default; echo "---"; "$(KUSTOMIZE)" build config/modules; } | \
+		sed 's|MODULE_OPERATOR_VERSION|$(VERSION)|g' | \
+		sed "s|__CDI_VERSION__|$$(cat config/modules/cdi/VERSION | tr -d '\n')|g" | \
+		sed "s|__KUBEVIRT_VERSION__|$$(cat config/modules/kubevirt/VERSION | tr -d '\n')|g" | \
+		sed "s|__ROOK_CEPH_VERSION__|$$(cat config/modules/rook-ceph/VERSION | tr -d '\n')|g" | \
+		sed "s|__GATEWAY_API_VERSION__|$$(cat config/modules/gateway-api/VERSION | tr -d '\n')|g" | \
+		sed "s|__GPU_OPERATOR_VERSION__|$$(cat config/modules/gpu-operator/VERSION | tr -d '\n')|g" | \
+		sed "s|__HAMI_VERSION__|$$(cat config/modules/hami/VERSION | tr -d '\n')|g" | \
+		sed "s|__ISTIO_VERSION__|$$(cat config/modules/istio/VERSION | tr -d '\n')|g" | \
+		sed "s|__PROMETHEUS_VERSION__|$$(cat config/modules/prometheus/VERSION | tr -d '\n')|g" | \
+		sed "s|__LLM_D_INFRA_VERSION__|$$(cat config/modules/llm-d-infra/VERSION | tr -d '\n')|g" \
+		> dist/install.yaml
 
 ##@ Deployment
 

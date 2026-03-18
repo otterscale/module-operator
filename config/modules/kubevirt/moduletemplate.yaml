@@ -1,4 +1,4 @@
-# ModuleTemplate — KubeVirt v1.8.0-rc.0
+# ModuleTemplate — KubeVirt v__KUBEVIRT_VERSION__
 # Uses FluxCD Kustomization. Deploy CDI first.
 apiVersion: module.otterscale.io/v1alpha1
 kind: ModuleTemplate
@@ -8,7 +8,7 @@ spec:
   namespace: kubevirt
 
   description: >-
-    KubeVirt v1.8.0-rc.0 — enables Kubernetes to manage VMs natively.
+    KubeVirt v__KUBEVIRT_VERSION__ — enables Kubernetes to manage VMs natively.
     Requires CDI for VM disk image import.
 
   kustomization:
