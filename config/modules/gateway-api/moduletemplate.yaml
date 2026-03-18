@@ -1,0 +1,20 @@
+# ModuleTemplate — Kubernetes Gateway API v__GATEWAY_API_VERSION__ (Standard channel)
+# Uses FluxCD Kustomization. CRDs only (GatewayClass, Gateway, HTTPRoute, etc.)
+apiVersion: module.otterscale.io/v1alpha1
+kind: ModuleTemplate
+metadata:
+  name: gateway-api
+spec:
+  namespace: default
+
+  description: >-
+    Kubernetes Gateway API v__GATEWAY_API_VERSION__ — Standard channel CRDs (GatewayClass, Gateway, HTTPRoute, GRPCRoute, ReferenceGrant).
+
+  kustomization:
+    interval: 30m
+    prune: true
+    sourceRef:
+      kind: GitRepository
+      name: otterscale-module-operator
+      namespace: otterscale-system
+    path: config/modules/gateway-api

@@ -1,0 +1,24 @@
+# ModuleTemplate — KubeVirt v__KUBEVIRT_VERSION__
+# Uses FluxCD Kustomization. Deploy CDI first.
+apiVersion: module.otterscale.io/v1alpha1
+kind: ModuleTemplate
+metadata:
+  name: kubevirt
+spec:
+  namespace: kubevirt
+
+  description: >-
+    KubeVirt v__KUBEVIRT_VERSION__ — enables Kubernetes to manage VMs natively.
+    Requires CDI for VM disk image import.
+
+  kustomization:
+    interval: 30m
+    prune: true
+    dependsOn:
+      - name: cdi
+        namespace: cdi
+    sourceRef:
+      kind: GitRepository
+      name: otterscale-module-operator
+      namespace: otterscale-system
+    path: config/modules/kubevirt

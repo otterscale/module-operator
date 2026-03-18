@@ -273,9 +273,15 @@ make build-installer IMG=<registry>/<project>:tag
 
 **Key points:**
 
-- The `dist/install.yaml` is generated from Kustomize manifests (CRDs, RBAC, Deployment)
+- The `dist/install.yaml` is generated from Kustomize manifests (CRDs, RBAC, Deployment, HelmRepository, GitRepository, addon ModuleTemplates)
 - Commit this file to your repository for easy distribution
 - Users only need `kubectl` to install (no additional tools required)
+
+**GitRepository version substitution:**
+
+- `config/modules/gitrepository.yaml` uses the placeholder `__MODULE_OPERATOR_VERSION__` for the Git ref tag
+- The `build-installer` target replaces it with the current version (`git describe --tags --always`) via `sed` before writing `dist/install.yaml`
+- Modules (CDI, KubeVirt, etc.) are thus sourced from the same version as the operator being built, enabling feature-branch testing without hardcoded tags
 
 **Example:** Users install with a single command:
 

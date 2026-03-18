@@ -1,0 +1,6 @@
+# Gateway API Inference Extension v__GAIE_VERSION__
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - https://github.com/kubernetes-sigs/gateway-api-inference-extension/releases/download/v__GAIE_VERSION__/manifests.yaml

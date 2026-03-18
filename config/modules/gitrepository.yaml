@@ -1,0 +1,12 @@
+# Shared GitRepository for addon ModuleTemplates (CDI, KubeVirt, etc.)
+# All addon components deploy from this repo's config/modules/*/deploy paths.
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: otterscale-module-operator
+  namespace: otterscale-system
+spec:
+  interval: 24h
+  url: https://github.com/otterscale/module-operator
+  ref:
+    tag: __MODULE_OPERATOR_VERSION__

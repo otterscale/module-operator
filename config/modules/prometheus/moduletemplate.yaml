@@ -1,0 +1,98 @@
+# ModuleTemplate — kube-prometheus-stack blueprint
+#
+# Defines a reusable template for deploying the Prometheus monitoring stack
+# (Prometheus + Alertmanager + Node Exporter, without Grafana) via FluxCD.
+#
+# IMPORTANT: Replace `storageClassName` with your cluster's actual StorageClass
+# name before applying (e.g. standard, gp2, longhorn, etc.).
+#
+# Apply:
+#   kubectl apply -f moduletemplate.yaml
+apiVersion: module.otterscale.io/v1alpha1
+kind: ModuleTemplate
+metadata:
+  name: prometheus-stack
+spec:
+  # Target namespace where the FluxCD HelmRelease object (and by default the
+  # Helm release itself) will be created. Can be overridden per-Module via
+  # Module.spec.namespace.
+  namespace: monitoring
+
+  description: >-
+    Deploys kube-prometheus-stack (Prometheus, Alertmanager, Node Exporter)
+    with persistent storage and remote-write receiver enabled.
+    Grafana is disabled; metrics retention is set to 365 days / 40 GiB.
+
+  # spec.helmRelease is the FluxCD HelmReleaseSpec (not a full HelmRelease).
+  # The controller instantiates a HelmRelease from this spec and places it
+  # in spec.namespace above.
+  helmRelease:
+    # Reconciliation interval — how often FluxCD re-checks drift.
+    interval: 30m
+
+    # Helm chart source: pulls kube-prometheus-stack from the
+    # prometheus HelmRepository (see helmrepository.yaml).
+    chart:
+      spec:
+        chart: kube-prometheus-stack
+        # Pin to a specific chart version for reproducibility.
+        # Remove or set to "*" to always track the latest.
+        version: "__PROMETHEUS_VERSION__"
+        sourceRef:
+          kind: HelmRepository
+          name: prometheus
+          namespace: otterscale-system
+        # How often FluxCD polls the chart index for new versions.
+        interval: 24h
+
+    # Install strategy: retry up to 3 times on failure.
+    install:
+      remediation:
+        retries: 3
+
+    # Upgrade strategy: retry up to 3 times; force resource replacement on
+    # field conflicts.
+    upgrade:
+      remediation:
+        retries: 3
+      force: false
+
+    # Maximum time allowed for a single Helm operation before it is
+    # considered a failure.
+    timeout: 30m
+
+    # Helm values — equivalent to the `--set` flags in the original
+    # `helm install` command.
+    values:
+      prometheus:
+        prometheusSpec:
+          # Accept remote-write requests (useful for forwarding from edge clusters).
+          enableRemoteWriteReceiver: true
+
+          # Data retention: keep up to 365 days or 40 GiB, whichever limit is hit first.
+          retention: "365d"
+          retentionSize: "40GiB"
+
+          # Discover ServiceMonitors from all namespaces, not just those that
+          # match the Helm release labels.
+          serviceMonitorSelectorNilUsesHelmValues: false
+
+          # Persistent storage for Prometheus TSDB.
+          # ⚠️  Replace `storageClassName` with the actual StorageClass on your cluster.
+          storageSpec:
+            volumeClaimTemplate:
+              spec:
+                # TODO: replace with your cluster's StorageClass (e.g. standard, gp2, longhorn)
+                accessModes:
+                  - ReadWriteOnce
+                resources:
+                  requests:
+                    storage: "40Gi"
+
+      # Deploy Node Exporter on every node for host-level metrics.
+      nodeExporter:
+        enabled: true
+
+      # Grafana is managed separately; disable the bundled instance.
+      grafana:
+        enabled: false

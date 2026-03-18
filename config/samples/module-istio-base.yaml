@@ -1,0 +1,6 @@
+apiVersion: module.otterscale.io/v1alpha1
+kind: Module
+metadata:
+  name: istio-base
+spec:
+  templateRef: istio-base

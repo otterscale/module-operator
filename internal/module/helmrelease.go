@@ -74,7 +74,7 @@ func ReconcileHelmRelease(
 		},
 	}
 
-	op, err := ctrlutil.CreateOrUpdate(ctx, c, hr, func() error {
+	op, err := ctrlutil.CreateOrPatch(ctx, c, hr, func() error {
 		if m.Spec.Values != nil {
 			templateSpec.Values = &apiextensionsv1.JSON{Raw: m.Spec.Values.Raw}
 		}

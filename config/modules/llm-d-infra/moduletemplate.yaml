@@ -1,0 +1,64 @@
+# ModuleTemplate — llm-d-infra blueprint
+#
+# Deploys llm-d infrastructure components: Gateway API configs, Helm charts,
+# and operational tooling for llm-d (Kubernetes-native distributed LLM inference).
+#
+# Prerequisites:
+#   - Kubernetes 1.28+
+#   - Gateway API v1.4.0+ installed
+#   - Gateway controller (Istio, Kgateway, AgentGateway or GKE) deployed
+#
+# See: https://github.com/llm-d-incubation/llm-d-infra
+#
+# Apply:
+#   kubectl apply -f moduletemplate.yaml
+apiVersion: module.otterscale.io/v1alpha1
+kind: ModuleTemplate
+metadata:
+  name: llm-d-infra
+spec:
+  namespace: llm-d
+
+  description: >-
+    Deploys llm-d infrastructure (Gateway API, service mesh integration)
+    for high-performance distributed LLM inference framework.
+
+  helmRelease:
+    interval: 30m
+
+    dependsOn:
+      - name: gpu-operator
+        namespace: gpu-operator
+      - name: istiod
+        namespace: istio-system
+
+    chart:
+      spec:
+        chart: llm-d-infra
+        version: "__LLM_D_INFRA_VERSION__"
+        sourceRef:
+          kind: HelmRepository
+          name: llm-d-infra
+          namespace: otterscale-system
+        interval: 24h
+
+    install:
+      remediation:
+        retries: 3
+
+    upgrade:
+      remediation:
+        retries: 3
+      force: false
+
+    timeout: 30m
+
+    values:
+      gateway:
+        gatewayParameters:
+          resources:
+            limits:
+              cpu: "2"
+              memory: "1Gi"
+        service:
+          type: NodePort
