@@ -5,7 +5,7 @@ kind: ModuleTemplate
 metadata:
   name: gateway-api
 spec:
-  namespace: gateway-api-system
+  namespace: default
 
   description: >-
     Kubernetes Gateway API v__GATEWAY_API_VERSION__ — Standard channel CRDs (GatewayClass, Gateway, HTTPRoute, GRPCRoute, ReferenceGrant).
