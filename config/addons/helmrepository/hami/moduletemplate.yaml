@@ -20,6 +20,10 @@ spec:
   helmRelease:
     interval: 10m
 
+    dependsOn:
+      - name: gpu-operator
+        namespace: gpu-operator
+
     chart:
       spec:
         chart: hami
