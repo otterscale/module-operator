@@ -30,10 +30,6 @@ spec:
     # Reconciliation interval — how often FluxCD re-checks drift.
     interval: 30m
 
-    dependsOn:
-      - name: rook-ceph
-        namespace: rook-ceph
-
     # Helm chart source: pulls kube-prometheus-stack from the
     # prometheus HelmRepository (see helmrepository.yaml).
     chart:

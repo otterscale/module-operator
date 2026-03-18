@@ -31,8 +31,6 @@ spec:
         namespace: gpu-operator
       - name: istio-gateway
         namespace: istio-ingress
-      - name: gateway-api
-        namespace: gateway-api-system
 
     chart:
       spec:
