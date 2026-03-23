@@ -1,0 +1,77 @@
+# ModuleTemplate — Rook-Ceph Cluster v__ROOK_CEPH_VERSION__ (Phase 2: CephCluster)
+#
+# Deploys CephCluster resources. Requires rook-ceph operator to be installed first.
+#
+# Apply order: rook-ceph → rook-ceph-cluster
+apiVersion: module.otterscale.io/v1alpha1
+kind: ModuleTemplate
+metadata:
+  name: rook-ceph-cluster
+spec:
+  namespace: rook-ceph
+
+  description: >-
+    Rook-Ceph Cluster v__ROOK_CEPH_VERSION__ — CephCluster resources. Requires rook-ceph operator.
+
+  helmRelease:
+    interval: 30m
+
+    dependsOn:
+      - name: rook-ceph
+        namespace: rook-ceph
+
+    chart:
+      spec:
+        chart: rook-ceph-cluster
+        version: "__ROOK_CEPH_VERSION__"
+        sourceRef:
+          kind: HelmRepository
+          name: rook-ceph
+          namespace: otterscale-system
+        interval: 24h
+
+    install:
+      remediation:
+        retries: 3
+
+    upgrade:
+      remediation:
+        retries: 3
+      force: false
+
+    timeout: 30m
+
+    values:
+      operatorNamespace: rook-ceph
+
+      cephClusterSpec:
+        mon:
+          count: 1
+          allowMultiplePerNode: true
+        mgr:
+          count: 1
+          allowMultiplePerNode: true
+        network:
+          provider: host
+
+      cephObjectStores:
+        - name: ceph-objectstore
+          spec:
+            metadataPool:
+              failureDomain: host
+              replicated:
+                size: 3
+            dataPool:
+              failureDomain: host
+              erasureCoded:
+                dataChunks: 2
+                codingChunks: 1
+            gateway:
+              port: 8080
+              instances: 1
+              priorityClassName: system-cluster-critical
+          storageClass:
+            enabled: true
+            name: ceph-bucket
+            reclaimPolicy: Delete
+            volumeBindingMode: Immediate
