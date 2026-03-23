@@ -1,5 +1,8 @@
 # ModuleTemplate — Rook-Ceph Operator v__ROOK_CEPH_VERSION__ (Phase 1: Operator only)
-# Uses FluxCD Kustomization. Phase 2: Apply rook-ceph-cluster Module for CephCluster.
+#
+# Deploys Rook-Ceph Operator (CRDs, Operator Deployment). Create CephCluster separately via rook-ceph-cluster Module.
+#
+# Apply order: rook-ceph → rook-ceph-cluster
 apiVersion: module.otterscale.io/v1alpha1
 kind: ModuleTemplate
 metadata:
@@ -10,11 +13,26 @@ spec:
   description: >-
     Rook-Ceph Operator v__ROOK_CEPH_VERSION__ — CRDs, Operator Deployment. Create CephCluster separately via rook-ceph-cluster Module.
 
-  kustomization:
+  helmRelease:
     interval: 30m
-    prune: true
-    sourceRef:
-      kind: GitRepository
-      name: otterscale-module-operator
-      namespace: otterscale-system
-    path: config/modules/rook-ceph
+
+    chart:
+      spec:
+        chart: rook-ceph
+        version: "__ROOK_CEPH_VERSION__"
+        sourceRef:
+          kind: HelmRepository
+          name: rook-ceph
+          namespace: otterscale-system
+        interval: 24h
+
+    install:
+      remediation:
+        retries: 3
+
+    upgrade:
+      remediation:
+        retries: 3
+      force: false
+
+    timeout: 30m

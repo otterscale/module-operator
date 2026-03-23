@@ -1,8 +1,0 @@
-# Rook-Ceph Operator v__ROOK_CEPH_VERSION__ — Phase 1: CRDs + Operator (no CephCluster)
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-
-resources:
-  - https://raw.githubusercontent.com/rook/rook/v__ROOK_CEPH_VERSION__/deploy/examples/crds.yaml
-  - https://raw.githubusercontent.com/rook/rook/v__ROOK_CEPH_VERSION__/deploy/examples/common.yaml
-  - https://raw.githubusercontent.com/rook/rook/v__ROOK_CEPH_VERSION__/deploy/examples/operator.yaml
