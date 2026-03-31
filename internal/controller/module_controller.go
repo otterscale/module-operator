@@ -75,12 +75,17 @@ type ModuleReconciler struct {
 // It implements the level-triggered reconciliation logic:
 // Fetch -> Finalizer -> Fetch Template -> Check Upgrade -> Sync FluxCD Resource -> Status Update.
 //
+<<<<<<< HEAD
+// For more details, check Reconcile and its Result here:
+// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.23.3/pkg/reconcile
+=======
 // When a ModuleTemplate changes, the controller evaluates an upgrade decision.
 // If the Module has an explicit ApprovedTemplateGeneration, template changes are
 // gated until the user approves the new generation. Otherwise, changes are auto-applied.
 //
 // Deletion is handled via Finalizer to ensure FluxCD resources are properly cleaned up
 // (allowing Flux to run its uninstall logic) before the Module is removed.
+>>>>>>> tmp-original-31-03-26-01-28
 func (r *ModuleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx).WithName(req.Name)
 	ctx = log.IntoContext(ctx, logger)
